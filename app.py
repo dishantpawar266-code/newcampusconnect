@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from models import db, User, Notice, Assignment, UploadedFile, Note, Doubt, Quiz, QuizResult, Conversation, Message, StudySession, Task, ExamReminder
+from resources_data import RESOURCES_DATA, CATEGORIES, get_recommended_resources, get_spotlight_resource
 
 load_dotenv()
 
@@ -1070,6 +1071,24 @@ def get_study_sessions():
     uid = session["uid"]
     docs = StudySession.query.filter_by(user_uid=uid).order_by(StudySession.date.desc()).limit(30).all()
     return jsonify([{"id": d.id, "date": d.date, "duration_seconds": d.duration_seconds} for d in docs])
+
+# ===========================================================================
+# STUDENT RESOURCE HUB
+# ===========================================================================
+
+@app.route("/resources")
+@app.route("/resource-hub")
+@login_required
+def resources():
+    recommended = get_recommended_resources()
+    spotlight = get_spotlight_resource()
+    return render_template(
+        "resources.html",
+        resources=RESOURCES_DATA,
+        categories=CATEGORIES,
+        recommended=recommended,
+        spotlight=spotlight
+    )
 
 # ===========================================================================
 # ADMIN DASHBOARD

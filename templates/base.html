@@ -36,6 +36,9 @@
       <a href="{{ url_for('study_hub') }}" class="{% if request.endpoint == 'study_hub' %}active{% endif %}">
         <span class="nav-icon">📚</span> Study Hub
       </a>
+      <a href="{{ url_for('resources') }}" class="{% if request.endpoint == 'resources' %}active{% endif %}">
+        <span class="nav-icon">🌐</span> Resource Hub
+      </a>
       
       <div class="sidebar-nav-section">Community</div>
       <a href="{{ url_for('classmates') }}" class="{% if request.endpoint == 'classmates' %}active{% endif %}">
