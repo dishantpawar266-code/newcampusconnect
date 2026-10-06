@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Chat with {{ peer.name }} — Campus Connect 3.0{% endblock %}
+{% block page_title %}💬 {{ peer.name }}{% endblock %}
+{% block content %}
+
+<div style="max-width:800px;margin:0 auto">
+  <!-- Peer info bar -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-body" style="padding:14px 20px;display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="avatar avatar-md">{{ (peer.name or '?')[0].upper() }}</div>
+        <div>
+          <div style="font-weight:700;color:var(--gray-900)">{{ peer.name }}</div>
+          <div style="font-size:12px;color:var(--gray-500)">
+            {{ peer.department or 'Student' }}
+            {% if peer.roll_number %} · {{ peer.roll_number }}{% endif %}
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <a href="{{ url_for('classmate_profile', peer_id=peer.id) }}" class="btn btn-ghost btn-sm">👤 Profile</a>
+        <a href="{{ url_for('messages') }}" class="btn btn-ghost btn-sm">← Inbox</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat window -->
+  <div class="card" style="overflow:hidden">
+    <!-- Messages -->
+    <div class="chat-messages"
+         id="chat-messages-container"
+         data-conv-id="{{ conv_id }}"
+         data-current-uid="{{ session.get('uid') }}"
+         data-last-ts="{{ messages[-1].created_at if messages else '' }}"
+         style="min-height:380px;max-height:520px">
+
+      {% if not messages %}
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--gray-400);font-size:14px;flex-direction:column;gap:8px">
+          <span style="font-size:40px">💬</span>
+          <span>Start a conversation with {{ peer.name }}</span>
+        </div>
+      {% else %}
+        {% for msg in messages %}
+          {% set is_sent = msg.sender_uid == session.get('uid') %}
+          <div class="msg-bubble {{ 'sent' if is_sent else 'received' }}" data-msg-id="{{ msg.id }}">
+            {% if msg.content %}
+              <div class="msg-content">{{ msg.content }}</div>
+            {% endif %}
+            {% if msg.file_url %}
+              <div class="msg-content">
+                <a href="{{ msg.file_url }}" target="_blank" rel="noopener"
+                   style="color:inherit;text-decoration:underline;display:flex;align-items:center;gap:6px">
+                  <span>{% if msg.file_type in ('jpg','jpeg','png','webp') %}🖼️{% elif msg.file_type in ('ppt','pptx') %}📊{% else %}📄{% endif %}</span>
+                  <span>{{ msg.file_name or 'File' }}</span>
+                </a>
+              </div>
+            {% endif %}
+            <span class="msg-time">
+              {{ msg.created_at[11:16] if msg.created_at else '' }}
+              {% if is_sent %}
+                · <span style="cursor:pointer;opacity:.7" onclick="deleteMsg('{{ conv_id }}','{{ msg.id }}',this)">✕</span>
+              {% endif %}
+            </span>
+          </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+
+    <!-- Input bar -->
+    <div class="chat-input-bar">
+      <form method="POST" action="{{ url_for('chat', peer_id=peer.id) }}"
+            enctype="multipart/form-data"
+            style="display:flex;align-items:center;gap:10px;width:100%">
+
+        <!-- File attachment -->
+        <label class="btn btn-ghost btn-icon" title="Attach file (TXT, PPT, JPG, PNG, WEBP)">
+          📎
+          <input type="file" name="file" style="display:none"
+                 accept=".txt,.ppt,.pptx,.jpg,.jpeg,.png,.webp"
+                 onchange="document.getElementById('attach-name').textContent = this.files[0]?.name || ''" />
+        </label>
+
+        <div style="flex:1;position:relative">
+          <input type="text" name="content" class="form-control"
+                 placeholder="Type a message..."
+                 autocomplete="off" id="msg-input" />
+          <span id="attach-name" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--gray-400);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-icon" id="send-btn">➤</button>
+      </form>
+    </div>
+  </div>
+
+  <div style="text-align:center;font-size:11px;color:var(--gray-400);margin-top:10px">
+    Allowed file types: TXT, PPT, PPTX, JPG, JPEG, PNG, WEBP · Max 10MB
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function deleteMsg(convId, msgId, el) {
+  if (!confirm('Delete this message?')) return;
+  fetch(`/messages/${convId}/delete/${msgId}`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+  }).then(r => r.json()).then(data => {
+    if (data.ok) {
+      el.closest('.msg-bubble').remove();
+    }
+  });
+}
+
+// Clear attach label on send
+document.querySelector('.chat-input-bar form').addEventListener('submit', () => {
+  document.getElementById('attach-name').textContent = '';
+});
+
+// Auto-scroll on load
+const chatWrap = document.getElementById('chat-messages-container');
+if (chatWrap) chatWrap.scrollTop = chatWrap.scrollHeight;
+
+// Send on Enter
+document.getElementById('msg-input')?.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    this.closest('form').submit();
+  }
+});
+</script>
+{% endblock %}

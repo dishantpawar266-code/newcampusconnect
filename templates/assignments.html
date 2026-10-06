@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Assignments — Campus Connect 3.0{% endblock %}
+{% block page_title %}Assignments{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Assignments</h1>
+    <p class="page-subtitle">View and manage academic assignments</p>
+  </div>
+  {% if current_user.role == 'faculty' %}
+    <a href="{{ url_for('create_assignment') }}" class="btn btn-primary">+ New Assignment</a>
+  {% endif %}
+</div>
+
+<div class="filter-bar">
+  <div class="search-input-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" class="form-control search-input" id="client-search"
+           data-search-target=".searchable-item" placeholder="Search assignments..." />
+  </div>
+  <select id="dept-filter" class="form-control" style="width:auto;min-width:200px">
+    <option value="">All Departments</option>
+    {% for dept in departments %}
+      <option value="{{ dept }}" {{ 'selected' if request.args.get('department') == dept }}>{{ dept }}</option>
+    {% endfor %}
+  </select>
+</div>
+
+{% if assignments %}
+  <div class="item-list">
+    {% for a in assignments %}
+      <div class="item-card searchable-item">
+        <div class="item-card-top">
+          <div>
+            <div class="item-card-title">{{ a.title }}</div>
+            <div class="item-card-meta">
+              {% if a.subject %}
+                <span class="badge badge-blue">{{ a.subject }}</span>
+              {% endif %}
+              {% if a.department %}
+                <span class="meta-item">🏢 {{ a.department }}</span>
+              {% endif %}
+              <span class="meta-item">👤 {{ a.author_name }}</span>
+              {% if a.deadline %}
+                <span class="meta-item" style="color:#dc2626;font-weight:600">
+                  ⏰ Due: {{ a.deadline }}
+                </span>
+              {% endif %}
+            </div>
+          </div>
+          {% if current_user.uid == a.author_uid %}
+            <div style="display:flex;gap:8px">
+              <a href="{{ url_for('edit_assignment', assignment_id=a.id) }}" class="btn btn-ghost btn-sm">✏️ Edit</a>
+              <form method="POST" action="{{ url_for('delete_assignment', assignment_id=a.id) }}"
+                    data-confirm="Delete this assignment? This cannot be undone.">
+                <button type="submit" class="btn btn-ghost btn-sm" style="color:#ef4444">🗑️</button>
+              </form>
+            </div>
+          {% endif %}
+        </div>
+        {% if a.description %}
+          <div class="item-card-body">{{ a.description }}</div>
+        {% endif %}
+        <div style="font-size:12px;color:var(--gray-400);margin-top:10px">
+          Posted {{ a.created_at[:10] if a.created_at else '' }}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card">
+    <div class="empty-state">
+      <div class="empty-state-icon">📋</div>
+      <div class="empty-state-title">No assignments yet.</div>
+      <div class="empty-state-text">
+        {% if current_user.role == 'faculty' %}
+          Create your first assignment for your students.
+        {% else %}
+          Your faculty will post assignments here.
+        {% endif %}
+      </div>
+      {% if current_user.role == 'faculty' %}
+        <a href="{{ url_for('create_assignment') }}" class="btn btn-primary" style="margin-top:16px">+ Create Assignment</a>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}

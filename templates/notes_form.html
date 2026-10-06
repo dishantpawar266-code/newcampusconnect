@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Upload Note — Campus Connect 3.0{% endblock %}
+{% block page_title %}Upload Note{% endblock %}
+{% block content %}
+
+<div style="max-width:680px">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">📤 Upload Academic Note</span>
+    </div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('upload_note') }}" enctype="multipart/form-data">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="title">Title <span class="required">*</span></label>
+            <input type="text" id="title" name="title" class="form-control"
+                   placeholder="e.g. OS Unit 3 Notes" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="subject">Subject</label>
+            <input type="text" id="subject" name="subject" class="form-control"
+                   placeholder="e.g. Operating Systems" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="department">Department</label>
+          <select id="department" name="department" class="form-control">
+            <option value="">General / All Departments</option>
+            {% for dept in departments %}
+              <option value="{{ dept }}">{{ dept }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="description">Description (optional)</label>
+          <textarea id="description" name="description" class="form-control" rows="3"
+                    placeholder="Brief description of these notes..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">File <span class="required">*</span></label>
+          <div style="border:2px dashed var(--gray-300);border-radius:var(--border-radius-sm);padding:32px;text-align:center;transition:border-color .2s"
+               id="drop-zone">
+            <div style="font-size:36px;margin-bottom:12px">📁</div>
+            <div style="font-size:14px;color:var(--gray-600);margin-bottom:8px">Drag and drop your file here, or</div>
+            <label class="btn btn-secondary" style="cursor:pointer">
+              Browse File
+              <input type="file" name="file" id="file-input" style="display:none" required
+                     accept=".txt,.ppt,.pptx,.jpg,.jpeg,.png,.webp"
+                     onchange="document.getElementById('file-name-display').textContent = this.files[0]?.name || 'No file selected'" />
+            </label>
+            <div id="file-name-display" style="margin-top:10px;font-size:13px;color:var(--gray-500)">No file selected</div>
+          </div>
+          <div class="form-hint">Allowed: TXT, PPT, PPTX, JPG, JPEG, PNG, WEBP · Max 10MB</div>
+        </div>
+
+        <div style="display:flex;gap:12px">
+          <button type="submit" class="btn btn-primary">📤 Upload Note</button>
+          <a href="{{ url_for('notes') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

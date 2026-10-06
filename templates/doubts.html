@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Doubts — Campus Connect 3.0{% endblock %}
+{% block page_title %}Doubts{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Doubts</h1>
+    <p class="page-subtitle">
+      {% if current_user.role == 'student' %}Ask faculty or clubs your questions{% else %}Student questions for you{% endif %}
+    </p>
+  </div>
+  {% if current_user.role == 'student' %}
+    <a href="{{ url_for('ask_doubt') }}" class="btn btn-primary">❓ Ask a Question</a>
+  {% endif %}
+</div>
+
+{% if doubts %}
+  <div class="item-list">
+    {% for doubt in doubts %}
+      <div class="item-card">
+        <div class="item-card-top">
+          <div>
+            <div class="item-card-title">{{ doubt.question }}</div>
+            <div class="item-card-meta">
+              <span class="badge badge-{{ 'green' if doubt.answered else 'orange' }}">
+                {{ '✓ Answered' if doubt.answered else '⏳ Pending' }}
+              </span>
+              <span class="meta-item">🎓 {{ doubt.asker_name }}</span>
+              <span class="meta-item">→ {{ doubt.target_name }}</span>
+              <span class="meta-item">📅 {{ doubt.created_at[:10] if doubt.created_at else '' }}</span>
+            </div>
+          </div>
+        </div>
+
+        {% if doubt.answer %}
+          <div style="margin-top:14px;padding:14px;background:var(--gray-50);border-radius:var(--border-radius-sm);border-left:3px solid #22c55e">
+            <div style="font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:6px">ANSWER</div>
+            <div style="font-size:14px;color:var(--gray-700)">{{ doubt.answer }}</div>
+            <div style="font-size:11px;color:var(--gray-400);margin-top:6px">
+              Answered by {{ doubt.target_name }}
+              {% if doubt.answered_at %} on {{ doubt.answered_at[:10] }}{% endif %}
+            </div>
+          </div>
+        {% endif %}
+
+        {% if current_user.role in ('faculty', 'club') and not doubt.answered and doubt.target_uid == current_user.uid %}
+          <div style="margin-top:14px">
+            <form method="POST" action="{{ url_for('answer_doubt', doubt_id=doubt.id) }}"
+                  style="display:flex;gap:10px;align-items:flex-end">
+              <div class="form-group" style="flex:1;margin-bottom:0">
+                <label class="form-label">Your Answer</label>
+                <textarea name="answer" class="form-control" rows="3"
+                          placeholder="Type your answer here..." required></textarea>
+              </div>
+              <button type="submit" class="btn btn-success">✓ Answer</button>
+            </form>
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card">
+    <div class="empty-state">
+      <div class="empty-state-icon">❓</div>
+      <div class="empty-state-title">No doubts yet.</div>
+      <div class="empty-state-text">
+        {% if current_user.role == 'student' %}
+          Have an academic question? Ask your faculty or club here.
+        {% else %}
+          Students will send their questions here. Check back soon.
+        {% endif %}
+      </div>
+      {% if current_user.role == 'student' %}
+        <a href="{{ url_for('ask_doubt') }}" class="btn btn-primary" style="margin-top:16px">❓ Ask First Question</a>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}

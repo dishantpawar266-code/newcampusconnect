@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ peer.name }} — Profile{% endblock %}
+{% block page_title %}Classmate Profile{% endblock %}
+{% block content %}
+
+<div style="max-width:600px">
+  <div class="card">
+    <div class="card-body" style="text-align:center;padding:40px">
+      <div class="avatar avatar-xl" style="margin:0 auto 20px;font-size:38px">
+        {{ (peer.name or 'U')[0].upper() }}
+      </div>
+      <h2 style="font-size:26px;font-weight:800;color:var(--gray-900);margin-bottom:8px">{{ peer.name }}</h2>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+        {% if peer.department %}
+          <span class="badge badge-blue">{{ peer.department }}</span>
+        {% endif %}
+        {% if peer.year %}
+          <span class="badge badge-gray">{{ peer.year }}</span>
+        {% endif %}
+        {% if peer.roll_number %}
+          <span class="badge badge-gray">Roll: {{ peer.roll_number }}</span>
+        {% endif %}
+      </div>
+      <div style="font-size:13px;color:var(--gray-500);margin-bottom:20px">{{ peer.email }}</div>
+      {% if peer.bio %}
+        <div style="background:var(--gray-50);border-radius:var(--border-radius-sm);padding:16px;text-align:left;font-size:14px;color:var(--gray-700);margin-bottom:20px">
+          {{ peer.bio }}
+        </div>
+      {% endif %}
+      <div style="display:flex;gap:12px;justify-content:center">
+        <a href="{{ url_for('chat', peer_id=peer.id) }}" class="btn btn-primary btn-lg">
+          💬 Send Message
+        </a>
+        <a href="{{ url_for('classmates') }}" class="btn btn-secondary">← Back</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

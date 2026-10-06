@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block header_title %}Exam Reminders{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <div>
+    <h1 class="hero-title" style="font-size:2rem; margin-bottom:5px;">Exam Reminders & Countdown</h1>
+    <p class="text-muted" style="color:var(--gray-500);">Keep track of your exams and never miss a beat.</p>
+  </div>
+  <button class="btn btn-primary" data-modal-open="exam-modal">+ Add Exam</button>
+</div>
+
+<div class="grid-2">
+  {% for exam in exams %}
+    <div class="exam-card" data-date="{{ exam.exam_date }}T{{ exam.exam_time or '00:00' }}:00">
+      <button class="btn-ghost btn-sm" onclick="deleteExam('{{ exam.id }}')" style="position:absolute; top:10px; right:10px; color:rgba(255,255,255,0.5); border:none;">✕</button>
+      <h3 class="exam-title">{{ exam.subject }}</h3>
+      <p class="exam-date">{{ exam.exam_date }} {% if exam.exam_time %}at {{ exam.exam_time }}{% endif %}</p>
+      
+      {% if exam.description %}
+      <p style="font-size:0.85rem; opacity:0.8; margin-bottom:15px;">{{ exam.description }}</p>
+      {% endif %}
+
+      <div class="countdown-grid">
+        <div class="cd-box">
+          <span class="cd-value cd-d">--</span>
+          <span class="cd-label">Days</span>
+        </div>
+        <div class="cd-box">
+          <span class="cd-value cd-h">--</span>
+          <span class="cd-label">Hours</span>
+        </div>
+        <div class="cd-box">
+          <span class="cd-value cd-m">--</span>
+          <span class="cd-label">Mins</span>
+        </div>
+        <div class="cd-box">
+          <span class="cd-value cd-s">--</span>
+          <span class="cd-label">Secs</span>
+        </div>
+      </div>
+      <div class="cd-status mt-4" style="font-weight:600; letter-spacing:1px; display:none;">EXAM STARTED/PASSED</div>
+    </div>
+  {% else %}
+    <div class="card text-center text-muted" style="grid-column: 1 / -1; border: 2px dashed var(--gray-200); background:transparent;">
+      No upcoming exams! Add one to start the countdown.
+    </div>
+  {% endfor %}
+</div>
+
+<!-- Exam Modal -->
+<div class="modal-overlay" id="exam-modal">
+  <div class="modal-content">
+    <div class="card-header">
+      <h3 class="card-title">Add Exam Reminder</h3>
+      <button class="btn-ghost" data-modal-close="exam-modal" style="border:none;">✕</button>
+    </div>
+    <form id="exam-form">
+      <div class="form-group">
+        <label class="form-label">Subject / Exam Name *</label>
+        <input type="text" id="exam-subject" class="form-control" placeholder="e.g. Data Structures" required>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Date *</label>
+          <input type="date" id="exam-date" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Time</label>
+          <input type="time" id="exam-time" class="form-control">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description (Optional)</label>
+        <textarea id="exam-desc" class="form-control" rows="2" placeholder="Syllabus, room number, etc..."></textarea>
+      </div>
+      <div class="flex justify-between mt-4">
+        <button type="button" class="btn btn-ghost" data-modal-close="exam-modal">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Exam</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Countdown Logic
+  function updateCountdowns() {
+    const cards = document.querySelectorAll('.exam-card');
+    const now = new Date().getTime();
+    
+    cards.forEach(card => {
+      const examDateStr = card.getAttribute('data-date');
+      const examTime = new Date(examDateStr).getTime();
+      const distance = examTime - now;
+      
+      const cdGrid = card.querySelector('.countdown-grid');
+      const statusDiv = card.querySelector('.cd-status');
+      
+      if (distance < 0) {
+        cdGrid.style.display = 'none';
+        statusDiv.style.display = 'block';
+        card.style.background = 'linear-gradient(135deg, var(--gray-500), var(--gray-600))';
+        return;
+      }
+      
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+      
+      card.querySelector('.cd-d').innerText = String(days).padStart(2, '0');
+      card.querySelector('.cd-h').innerText = String(hours).padStart(2, '0');
+      card.querySelector('.cd-m').innerText = String(minutes).padStart(2, '0');
+      card.querySelector('.cd-s').innerText = String(seconds).padStart(2, '0');
+      
+      // Update color based on urgency
+      if (days <= 3) {
+        card.classList.add('urgent');
+        card.classList.remove('warning');
+      } else if (days <= 7) {
+        card.classList.add('warning');
+        card.classList.remove('urgent');
+      }
+    });
+  }
+  
+  if (document.querySelectorAll('.exam-card').length > 0) {
+    updateCountdowns();
+    setInterval(updateCountdowns, 1000);
+  }
+
+  // Form Submission
+  document.getElementById('exam-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const data = {
+      subject: document.getElementById('exam-subject').value,
+      exam_date: document.getElementById('exam-date').value,
+      exam_time: document.getElementById('exam-time').value,
+      description: document.getElementById('exam-desc').value,
+    };
+    fetch('/api/exams', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    }).then(r => r.json()).then(res => {
+      if(res.ok) window.location.reload();
+      else alert(res.error || 'Failed to save exam');
+    });
+  });
+
+  function deleteExam(id) {
+    if(confirm('Delete this exam reminder?')) {
+      fetch('/api/exams/'+id, {method: 'DELETE'})
+        .then(r => r.json()).then(res => {
+          if(res.ok) window.location.reload();
+        });
+    }
+  }
+</script>
+{% endblock %}

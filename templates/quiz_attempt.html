@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ quiz.title }} — Quiz Attempt{% endblock %}
+{% block page_title %}{{ quiz.title }}{% endblock %}
+{% block content %}
+
+<div style="max-width:720px">
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-body" style="padding:16px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div>
+        <div style="font-weight:700;font-size:16px">{{ quiz.title }}</div>
+        <div style="font-size:13px;color:var(--gray-500)">
+          {{ quiz.questions | length }} question(s) · by {{ quiz.creator_name }}
+          {% if quiz.department %} · {{ quiz.department }}{% endif %}
+        </div>
+      </div>
+      <span class="badge badge-green">Active</span>
+    </div>
+  </div>
+
+  <form method="POST" action="{{ url_for('attempt_quiz', quiz_id=quiz.id) }}"
+        data-confirm="Submit quiz? You cannot change answers afterwards.">
+    {% for i, q in enumerate(quiz.questions) %}
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-body">
+          <div style="font-weight:700;color:var(--gray-800);margin-bottom:4px">
+            Q{{ i+1 }}. {{ q.question }}
+          </div>
+          <div style="font-size:12px;color:var(--gray-400);margin-bottom:16px">{{ q.marks }} mark(s)</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            {% for j, opt in enumerate(q.options) %}
+              {% if opt %}
+                <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid var(--gray-200);border-radius:var(--border-radius-sm);cursor:pointer;transition:all .15s;font-size:14px"
+                       class="quiz-option">
+                  <input type="radio" name="q_{{ i }}" value="{{ j }}" required />
+                  <span>{{ opt }}</span>
+                </label>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+
+    <div style="display:flex;gap:12px">
+      <button type="submit" class="btn btn-primary btn-lg">✓ Submit Quiz</button>
+      <a href="{{ url_for('quizzes') }}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // Highlight selected options
+  document.querySelectorAll('.quiz-option input[type="radio"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      const group = radio.closest('.card').querySelectorAll('.quiz-option');
+      group.forEach(opt => {
+        opt.style.borderColor = 'var(--gray-200)';
+        opt.style.background = '';
+      });
+      radio.closest('.quiz-option').style.borderColor = 'var(--primary-500)';
+      radio.closest('.quiz-option').style.background = 'var(--primary-50)';
+    });
+  });
+</script>
+{% endblock %}

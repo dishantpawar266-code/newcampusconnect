@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% block title %}Sign In — Campus Connect 3.0{% endblock %}
+{% block content %}
+
+<div class="auth-page">
+  <div class="auth-container">
+    <div class="auth-card">
+      
+      <!-- Brand & Header -->
+      <div class="auth-card-header">
+        <div class="auth-logo-badge">🎓</div>
+        <span class="auth-badge">✨ Campus Connect Portal</span>
+        <h1 class="auth-title">Welcome Back</h1>
+        <p class="auth-subtitle">Sign in to access your dashboard, courses & campus network</p>
+      </div>
+
+      <!-- Role Selection Tabs -->
+      <div class="role-tabs" id="login-role-tabs" role="tablist">
+        <button type="button" class="role-tab-btn active" data-role="student" role="tab" aria-selected="true">
+          <span>🎓</span> Student
+        </button>
+        <button type="button" class="role-tab-btn" data-role="faculty" role="tab" aria-selected="false">
+          <span>👨‍🏫</span> Faculty
+        </button>
+        <button type="button" class="role-tab-btn" data-role="club" role="tab" aria-selected="false">
+          <span>🏛️</span> Club
+        </button>
+      </div>
+
+      <!-- Dynamic Role Hint -->
+      <div class="role-badge-hint" id="role-badge-hint">
+        <span id="role-hint-icon">🎓</span>
+        <span id="role-hint-text">Student Portal: Access courses, study hub & notes</span>
+      </div>
+
+      <!-- Login Form -->
+      <form method="POST" action="{{ url_for('login') }}" id="login-form" novalidate>
+        
+        <!-- Email / Username Field -->
+        <div class="form-group">
+          <label class="form-label" for="email">
+            Email Address <span class="required">*</span>
+          </label>
+          <div class="input-group">
+            <span class="input-icon-left">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="20" height="16" x="2" y="4" rx="2"/>
+                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+              </svg>
+            </span>
+            <input type="email" id="email" name="email" class="form-control"
+                   placeholder="student@campus.edu" required autocomplete="email" />
+          </div>
+        </div>
+
+        <!-- Password Field -->
+        <div class="form-group">
+          <label class="form-label" for="password">
+            Password <span class="required">*</span>
+          </label>
+          <div class="input-group has-toggle">
+            <span class="input-icon-left">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            </span>
+            <input type="password" id="password" name="password" class="form-control"
+                   placeholder="••••••••" required autocomplete="current-password" />
+            <button type="button" class="password-toggle-btn" id="toggle-password" title="Show or hide password" aria-label="Show password">
+              <svg class="eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg class="eye-closed" style="display:none;" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9.88 9.88a3 3 0 1 0 4.24 4.24"/>
+                <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
+                <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
+                <line x1="2" x2="22" y1="2" y2="22"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Options: Remember Me & Forgot Password -->
+        <div class="auth-options">
+          <label class="custom-checkbox">
+            <input type="checkbox" name="remember" id="remember" checked />
+            <span>Remember me</span>
+          </label>
+          <button type="button" class="forgot-password-link" data-modal-open="forgot-password-modal">
+            Forgot password?
+          </button>
+        </div>
+
+        <!-- Admin Access Code (Developer Only, Hidden) -->
+        <div id="admin-code-field" class="form-group" style="display:none; margin-bottom:18px;">
+          <label class="form-label" for="admin_code">Master Access Code</label>
+          <div class="input-group">
+            <span class="input-icon-left">🔑</span>
+            <input type="password" id="admin_code" name="admin_code" class="form-control"
+                   placeholder="Enter master admin key" autocomplete="off" />
+          </div>
+          <div class="form-hint">Authorized administrators only.</div>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" class="btn-submit" id="btn-login-submit">
+          <span class="btn-label">Sign In to Dashboard →</span>
+        </button>
+
+        <!-- Admin toggle link -->
+        <div style="text-align:center; margin-top:14px;">
+          <button type="button" id="show-admin-code" class="admin-toggle-btn">
+            <span>🛡️</span> Admin Portal Access
+          </button>
+        </div>
+      </form>
+
+      <!-- Auth Footer -->
+      <div class="auth-footer">
+        New to Campus Connect?
+        <a href="{{ url_for('register') }}">Create an account here</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Forgot Password Modal -->
+<div class="modal-overlay" id="forgot-password-modal">
+  <div class="modal-content" style="max-width:440px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h3 style="margin:0; font-size:1.25rem;">Reset Your Password</h3>
+      <button class="btn-ghost" data-modal-close="forgot-password-modal" style="font-size:1.2rem; cursor:pointer; border:none; background:none;">✕</button>
+    </div>
+    <p style="color:var(--gray-600); font-size:0.9rem; margin-bottom:20px; line-height:1.5;">
+      Enter your registered campus email address. We'll verify your department records and send password assistance.
+    </p>
+    <div class="form-group">
+      <label class="form-label" for="reset-email">Registered Email</label>
+      <input type="email" id="reset-email" class="form-control" placeholder="your@campus.edu">
+    </div>
+    <div style="display:flex; gap:10px; justify-content:flex-end;">
+      <button type="button" class="btn btn-outline" data-modal-close="forgot-password-modal">Cancel</button>
+      <button type="button" class="btn btn-primary" id="btn-send-reset">Send Instructions</button>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // Role switcher tabs
+  const roleTabs = document.querySelectorAll('#login-role-tabs .role-tab-btn');
+  const roleHintText = document.getElementById('role-hint-text');
+  const roleHintIcon = document.getElementById('role-hint-icon');
+  const emailInput = document.getElementById('email');
+
+  const roleData = {
+    student: {
+      icon: '🎓',
+      text: 'Student Portal: Access courses, study hub & notes',
+      placeholder: 'student@campus.edu'
+    },
+    faculty: {
+      icon: '👨‍🏫',
+      text: 'Faculty Portal: Manage doubts, assignments & notices',
+      placeholder: 'faculty@campus.edu'
+    },
+    club: {
+      icon: '🏛️',
+      text: 'Club & Society Portal: Coordinate events & campus posts',
+      placeholder: 'club@campus.edu'
+    }
+  };
+
+  roleTabs.forEach(btn => {
+    btn.addEventListener('click', function () {
+      roleTabs.forEach(b => {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+      });
+      this.classList.add('active');
+      this.setAttribute('aria-selected', 'true');
+
+      const role = this.dataset.role;
+      if (roleData[role]) {
+        roleHintIcon.textContent = roleData[role].icon;
+        roleHintText.textContent = roleData[role].text;
+        if (emailInput && !emailInput.value) {
+          emailInput.placeholder = roleData[role].placeholder;
+        }
+      }
+    });
+  });
+
+  // Password visibility toggle
+  const togglePassBtn = document.getElementById('toggle-password');
+  const passInput = document.getElementById('password');
+  if (togglePassBtn && passInput) {
+    const eyeOpen = togglePassBtn.querySelector('.eye-open');
+    const eyeClosed = togglePassBtn.querySelector('.eye-closed');
+
+    togglePassBtn.addEventListener('click', function () {
+      const isPassword = passInput.getAttribute('type') === 'password';
+      passInput.setAttribute('type', isPassword ? 'text' : 'password');
+      if (eyeOpen && eyeClosed) {
+        eyeOpen.style.display = isPassword ? 'none' : 'block';
+        eyeClosed.style.display = isPassword ? 'block' : 'none';
+      }
+      this.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+    });
+  }
+
+  // Admin access toggle
+  const adminToggle = document.getElementById('show-admin-code');
+  const adminField = document.getElementById('admin-code-field');
+  if (adminToggle && adminField) {
+    adminToggle.addEventListener('click', function () {
+      const isHidden = adminField.style.display === 'none';
+      adminField.style.display = isHidden ? 'block' : 'none';
+      if (isHidden) {
+        const adminInput = document.getElementById('admin_code');
+        if (adminInput) adminInput.focus();
+      }
+    });
+  }
+
+  // Login form submission animation
+  const loginForm = document.getElementById('login-form');
+  const loginBtn = document.getElementById('btn-login-submit');
+  if (loginForm && loginBtn) {
+    loginForm.addEventListener('submit', function (e) {
+      if (loginForm.checkValidity()) {
+        loginBtn.classList.add('loading');
+        loginBtn.innerHTML = '<span>Verifying credentials...</span>';
+      }
+    });
+  }
+
+  // Forgot password modal submit handler
+  const resetBtn = document.getElementById('btn-send-reset');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', function () {
+      const email = document.getElementById('reset-email').value.trim();
+      if (!email) {
+        if (window.showToast) window.showToast('Please enter your campus email address', 'error');
+        return;
+      }
+      if (window.closeModal) window.closeModal('forgot-password-modal');
+      if (window.showToast) {
+        window.showToast('Password recovery instructions sent to ' + email, 'success');
+      }
+    });
+  }
+});
+</script>
+
+{% endblock %}

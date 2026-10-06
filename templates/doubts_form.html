@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Ask a Question — Campus Connect 3.0{% endblock %}
+{% block page_title %}Ask a Question{% endblock %}
+{% block content %}
+
+<div style="max-width:680px">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">❓ Submit a Doubt</span>
+    </div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('ask_doubt') }}">
+        <div class="form-group">
+          <label class="form-label">Ask <span class="required">*</span></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+            {% for f in faculty_list %}
+              <label style="display:flex;align-items:center;gap:10px;padding:12px;border:2px solid var(--gray-200);border-radius:var(--border-radius-sm);cursor:pointer;transition:all .2s;font-size:14px"
+                     class="recipient-opt" onclick="selectRecipient('{{ f.id }}','{{ f.name }}','faculty')">
+                <input type="radio" name="_target" value="{{ f.id }}" style="display:none" />
+                <span style="font-size:20px">👨‍🏫</span>
+                <span>
+                  <strong>{{ f.name }}</strong><br/>
+                  <small style="color:var(--gray-500)">{{ f.designation or 'Faculty' }}</small>
+                </span>
+              </label>
+            {% endfor %}
+            {% for c in club_list %}
+              <label style="display:flex;align-items:center;gap:10px;padding:12px;border:2px solid var(--gray-200);border-radius:var(--border-radius-sm);cursor:pointer;transition:all .2s;font-size:14px"
+                     class="recipient-opt" onclick="selectRecipient('{{ c.id }}','{{ c.club_name or c.name }}','club')">
+                <input type="radio" name="_target" value="{{ c.id }}" style="display:none" />
+                <span style="font-size:20px">🏛️</span>
+                <span>
+                  <strong>{{ c.club_name or c.name }}</strong><br/>
+                  <small style="color:var(--gray-500)">{{ c.club_category or 'Club' }}</small>
+                </span>
+              </label>
+            {% endfor %}
+            {% if not faculty_list and not club_list %}
+              <div class="empty-state" style="padding:24px;grid-column:1/-1">
+                <div class="empty-state-text">No faculty or clubs registered yet.</div>
+              </div>
+            {% endif %}
+          </div>
+          <input type="hidden" name="target_uid" id="target-uid" required />
+          <input type="hidden" name="target_name" id="target-name" />
+          <input type="hidden" name="target_type" id="target-type" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="question">Your Question <span class="required">*</span></label>
+          <textarea id="question" name="question" class="form-control" rows="5"
+                    placeholder="Describe your doubt clearly..." required></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="department">Related Department (optional)</label>
+          <select id="department" name="department" class="form-control">
+            <option value="">Select department</option>
+            {% for dept in departments %}
+              <option value="{{ dept }}">{{ dept }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div style="display:flex;gap:12px">
+          <button type="submit" class="btn btn-primary">📩 Submit Question</button>
+          <a href="{{ url_for('doubts') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function selectRecipient(uid, name, type) {
+  document.getElementById('target-uid').value = uid;
+  document.getElementById('target-name').value = name;
+  document.getElementById('target-type').value = type;
+  document.querySelectorAll('.recipient-opt').forEach(el => {
+    el.style.borderColor = 'var(--gray-200)';
+    el.style.background = '';
+  });
+  event.currentTarget.style.borderColor = 'var(--primary-500)';
+  event.currentTarget.style.background = 'var(--primary-50)';
+}
+</script>
+{% endblock %}

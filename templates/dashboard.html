@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+
+{% block header_title %}Student Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- Personalized Welcome Banner -->
+<div class="welcome-banner">
+  <div class="welcome-banner-content">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
+      <div>
+        <h1 class="welcome-heading">
+          Good <span id="greeting-time">day</span>, {{ session.get('name', 'Student').split(' ')[0] }} 👋
+        </h1>
+        <p class="welcome-subheading">
+          Welcome back to your academic workspace. Here's your study overview for today.
+        </p>
+        <div class="welcome-badge-row">
+          <span class="welcome-badge">
+            <span>🎓</span> {{ session.get('role', 'Student')|capitalize }}
+          </span>
+          {% if session.get('department') %}
+            <span class="welcome-badge">
+              <span>🏫</span> {{ session.get('department') }}
+            </span>
+          {% endif %}
+          {% if session.get('roll_number') %}
+            <span class="welcome-badge">
+              <span>🪪</span> {{ session.get('roll_number') }}
+            </span>
+          {% endif %}
+          <span class="welcome-badge" id="live-date-badge">
+            <span>📅</span> <span id="current-date-text">Academic Term</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Productivity Overview KPI Cards -->
+{% set pending_tasks = stats.tasks|selectattr("is_completed", "equalto", false)|list|length %}
+{% set total_tasks = stats.tasks|length %}
+{% set completed_tasks = total_tasks - pending_tasks %}
+{% set task_progress = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0 %}
+{% set study_hrs = (stats.study_time_seconds // 3600) %}
+{% set study_mins = ((stats.study_time_seconds % 3600) // 60) %}
+
+<div class="quick-cards-grid">
+  <!-- Tasks Completed Metric -->
+  <div class="stat-card bg-gradient-1">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="stat-label">Tasks Completed</div>
+      <span style="font-size:1.5rem; opacity:0.8;">📝</span>
+    </div>
+    <div class="stat-value">{{ completed_tasks }} <span style="font-size:1.2rem; font-weight:400; opacity:0.8;">/ {{ total_tasks }}</span></div>
+    <div class="progress-bar mt-4" style="background:rgba(255,255,255,0.25);">
+      <div class="progress-fill" style="background:white; width: {{ task_progress }}%;"></div>
+    </div>
+    <div style="font-size:0.75rem; margin-top:6px; opacity:0.9;">
+      {{ "%.0f"|format(task_progress) }}% finished • {{ pending_tasks }} remaining
+    </div>
+  </div>
+
+  <!-- Upcoming Exams Metric -->
+  <div class="stat-card bg-gradient-2">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="stat-label">Upcoming Exams</div>
+      <span style="font-size:1.5rem; opacity:0.8;">⏰</span>
+    </div>
+    <div class="stat-value">{{ stats.exams|length }}</div>
+    <div style="font-size:0.85rem; margin-top:14px; opacity:0.9;">
+      {% if stats.exams|length > 0 %}
+        Next: {{ stats.exams[0].subject }} ({{ stats.exams[0].exam_date }})
+      {% else %}
+        No upcoming exams scheduled
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Total Focus Study Time Metric -->
+  <div class="stat-card bg-gradient-3">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="stat-label">Focus Study Time</div>
+      <span style="font-size:1.5rem; opacity:0.8;">⏱️</span>
+    </div>
+    <div class="stat-value">{{ study_hrs }}h {{ study_mins }}m</div>
+    <div style="font-size:0.85rem; margin-top:14px; opacity:0.9;">
+      Tracked via Study Hub timer
+    </div>
+  </div>
+</div>
+
+<!-- Quick Actions Section -->
+<div class="flex items-center justify-between mb-4">
+  <h3 style="font-size:1.25rem; font-weight:700;">Explore & Quick Actions</h3>
+  <span style="font-size:0.85rem; color:var(--gray-500);">All Academic Tools</span>
+</div>
+
+<div class="quick-actions-grid">
+  <!-- Ask Planner -->
+  <a href="{{ url_for('planner') }}" class="action-card">
+    <div class="action-icon indigo">📝</div>
+    <div class="action-info">
+      <h4>Ask Planner</h4>
+      <p>Organize academic tasks & priorities</p>
+    </div>
+  </a>
+
+  <!-- Exam Reminders -->
+  <a href="{{ url_for('exams') }}" class="action-card">
+    <div class="action-icon orange">⏰</div>
+    <div class="action-info">
+      <h4>Exam Reminders</h4>
+      <p>Track test dates & live countdowns</p>
+    </div>
+  </a>
+
+  <!-- Study Hub -->
+  <a href="{{ url_for('study_hub') }}" class="action-card">
+    <div class="action-icon green">📚</div>
+    <div class="action-info">
+      <h4>Study Hub</h4>
+      <p>Focus timer & revision streak</p>
+    </div>
+  </a>
+
+  <!-- Classmates & Chat -->
+  <a href="{{ url_for('classmates') }}" class="action-card">
+    <div class="action-icon blue">💬</div>
+    <div class="action-info">
+      <h4>Classmates & Sharing</h4>
+      <p>Peer directory & direct messaging</p>
+    </div>
+  </a>
+
+  <!-- Lecture Notes -->
+  <a href="{{ url_for('notes') }}" class="action-card">
+    <div class="action-icon purple">📖</div>
+    <div class="action-info">
+      <h4>Lecture Notes</h4>
+      <p>Subject documents & shared PDFs</p>
+    </div>
+  </a>
+
+  <!-- Ask Faculty / Doubts -->
+  <a href="{{ url_for('doubts') }}" class="action-card">
+    <div class="action-icon rose">❓</div>
+    <div class="action-info">
+      <h4>Ask Faculty</h4>
+      <p>Resolve subject queries & doubts</p>
+    </div>
+  </a>
+
+  <!-- Campus Notices -->
+  <a href="{{ url_for('notices') }}" class="action-card">
+    <div class="action-icon cyan">📢</div>
+    <div class="action-info">
+      <h4>Campus Notices</h4>
+      <p>Official circulars & event bulletins</p>
+    </div>
+  </a>
+
+  <!-- Assignments -->
+  <a href="{{ url_for('assignments') }}" class="action-card">
+    <div class="action-icon amber">📋</div>
+    <div class="action-info">
+      <h4>Assignments</h4>
+      <p>Coursework submissions & marks</p>
+    </div>
+  </a>
+</div>
+
+<!-- Detailed Data Columns: Tasks, Notices & Assignments -->
+<div class="grid-2 mb-8">
+  
+  <!-- Active Tasks Card -->
+  <div class="card">
+    <div class="card-header">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:1.2rem;">📌</span>
+        <h3 class="card-title" style="margin:0;">Pending Tasks</h3>
+      </div>
+      <a href="{{ url_for('planner') }}" class="btn btn-ghost btn-sm">Open Planner →</a>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      {% set active_tasks = stats.tasks|selectattr("is_completed", "equalto", false)|list %}
+      {% for task in active_tasks %}
+        {% if loop.index <= 4 %}
+        <div class="task-item" style="padding:12px 14px; margin:0; border-radius:var(--radius-md);">
+          <div class="task-checkbox" onclick="toggleTask('{{ task.id }}')" title="Click to complete"></div>
+          <div class="task-content">
+            <div style="font-weight:600; font-size:0.95rem; color:var(--gray-900);">{{ task.title }}</div>
+            <div class="task-meta" style="margin-top:4px; font-size:0.8rem;">
+              {% if task.subject %}
+                <span style="color:var(--primary); font-weight:500;">{{ task.subject }}</span>
+              {% endif %}
+              {% if task.due_date %}
+                <span>📅 Due: {{ task.due_date }}</span>
+              {% endif %}
+              {% if task.priority %}
+                <span class="priority-tag priority-{{ task.priority|lower }}">{{ task.priority }}</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      {% else %}
+        <!-- Rich Empty State for Tasks -->
+        <div class="empty-state">
+          <div class="empty-state-icon">🎉</div>
+          <div class="empty-state-title">You're All Caught Up!</div>
+          <p class="empty-state-desc">No pending tasks on your plate right now. Plan your next study goal or revision session.</p>
+          <a href="{{ url_for('planner') }}" class="btn btn-outline btn-sm">+ Add a New Task</a>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Recent Notices Card -->
+  <div class="card">
+    <div class="card-header">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:1.2rem;">📢</span>
+        <h3 class="card-title" style="margin:0;">Recent Campus Notices</h3>
+      </div>
+      <a href="{{ url_for('notices') }}" class="btn btn-ghost btn-sm">All Notices →</a>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      {% for notice in stats.recent_notices %}
+        <div style="border-bottom:1px solid var(--gray-100); padding-bottom:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
+            <h4 style="font-size:0.95rem; font-weight:600; color:var(--gray-900); margin:0;">{{ notice.title }}</h4>
+            {% if notice.department %}
+              <span class="badge badge-blue" style="font-size:0.7rem;">{{ notice.department[:15] }}</span>
+            {% endif %}
+          </div>
+          <p style="font-size:0.85rem; color:var(--gray-600); margin:0 0 6px; line-height:1.4;">
+            {{ notice.content[:100] }}{% if notice.content|length > 100 %}...{% endif %}
+          </p>
+          <div style="font-size:0.75rem; color:var(--gray-400); display:flex; gap:10px;">
+            <span>By {{ notice.author_name or 'Faculty Desk' }}</span>
+          </div>
+        </div>
+      {% else %}
+        <!-- Rich Empty State for Notices -->
+        <div class="empty-state">
+          <div class="empty-state-icon">📫</div>
+          <div class="empty-state-title">No Recent Notices</div>
+          <p class="empty-state-desc">No new announcements posted this week. Check back later for departmental updates.</p>
+          <a href="{{ url_for('notices') }}" class="btn btn-ghost btn-sm">Browse Notice Archive</a>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Recent Assignments Section -->
+<div class="card mb-8">
+  <div class="card-header">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="font-size:1.2rem;">📋</span>
+      <h3 class="card-title" style="margin:0;">Active Coursework & Assignments</h3>
+    </div>
+    <a href="{{ url_for('assignments') }}" class="btn btn-ghost btn-sm">View All Assignments →</a>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:12px;">
+    {% for assign in stats.recent_assignments %}
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:var(--gray-50); border-radius:var(--radius-md); border:1px solid var(--gray-200); flex-wrap:wrap; gap:10px;">
+        <div>
+          <div style="font-weight:600; font-size:0.95rem; color:var(--gray-900);">{{ assign.title }}</div>
+          <div style="font-size:0.8rem; color:var(--gray-500); margin-top:2px;">
+            <span style="color:var(--primary); font-weight:500;">{{ assign.subject or 'General' }}</span> • By {{ assign.author_name }}
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          {% if assign.deadline %}
+            <span class="badge badge-yellow" style="font-size:0.75rem;">Deadline: {{ assign.deadline }}</span>
+          {% endif %}
+          <a href="{{ url_for('assignments') }}" class="btn btn-outline btn-sm">Details</a>
+        </div>
+      </div>
+    {% else %}
+      <div class="empty-state" style="padding:28px 20px;">
+        <div class="empty-state-icon">✨</div>
+        <div class="empty-state-title">No Assignments Due</div>
+        <p class="empty-state-desc">You're completely up to date with your coursework submissions. Great job!</p>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // Dynamic Greeting based on time of day
+  const hour = new Date().getHours();
+  let greeting = 'day';
+  if (hour < 12) greeting = 'morning';
+  else if (hour < 17) greeting = 'afternoon';
+  else greeting = 'evening';
+  
+  const greetEl = document.getElementById('greeting-time');
+  if (greetEl) greetEl.innerText = greeting;
+
+  // Format today's date
+  const dateEl = document.getElementById('current-date-text');
+  if (dateEl) {
+    const now = new Date();
+    const options = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
+    dateEl.innerText = now.toLocaleDateString(undefined, options);
+  }
+});
+
+function toggleTask(id) {
+  fetch('/api/tasks/' + id + '/toggle', { method: 'POST' })
+    .then(r => r.json())
+    .then(res => {
+      if (res.ok) {
+        if (window.showToast) window.showToast('Task updated!', 'success');
+        setTimeout(() => window.location.reload(), 400);
+      }
+    })
+    .catch(err => {
+      console.error(err);
+    });
+}
+</script>
+
+{% endblock %}

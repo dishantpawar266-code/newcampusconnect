@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campus Connect 3.0</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+{% if current_user and session.get('role') != 'admin' %}
+<!-- AUTHENTICATED APP SHELL -->
+<div class="app-shell">
+  <div id="sidebar-overlay" class="sidebar-overlay"></div>
+  
+  <!-- Sidebar Navigation -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <a href="{{ url_for('dashboard') }}" class="brand-logo">
+        <span class="brand-icon">🎓</span>
+        <span class="brand-name">Campus Connect</span>
+      </a>
+    </div>
+    
+    <nav class="sidebar-nav">
+      <div class="sidebar-nav-section">Main Menu</div>
+      <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+        <span class="nav-icon">📊</span> Dashboard
+      </a>
+      <a href="{{ url_for('planner') }}" class="{% if request.endpoint == 'planner' %}active{% endif %}">
+        <span class="nav-icon">📝</span> Ask Planner
+      </a>
+      <a href="{{ url_for('exams') }}" class="{% if request.endpoint == 'exams' %}active{% endif %}">
+        <span class="nav-icon">⏰</span> Exam Reminders
+      </a>
+      <a href="{{ url_for('study_hub') }}" class="{% if request.endpoint == 'study_hub' %}active{% endif %}">
+        <span class="nav-icon">📚</span> Study Hub
+      </a>
+      
+      <div class="sidebar-nav-section">Community</div>
+      <a href="{{ url_for('classmates') }}" class="{% if request.endpoint == 'classmates' %}active{% endif %}">
+        <span class="nav-icon">💬</span> Classmates & Sharing
+      </a>
+      <a href="{{ url_for('notes') }}" class="{% if request.endpoint == 'notes' %}active{% endif %}">
+        <span class="nav-icon">📖</span> Notes
+      </a>
+      <a href="{{ url_for('doubts') }}" class="{% if request.endpoint == 'doubts' %}active{% endif %}">
+        <span class="nav-icon">❓</span> Ask Faculty
+      </a>
+      <a href="{{ url_for('quizzes') }}" class="{% if request.endpoint == 'quizzes' %}active{% endif %}">
+        <span class="nav-icon">🏆</span> Quizzes
+      </a>
+    </nav>
+    
+    <div class="sidebar-user">
+      <div class="sidebar-user-info">
+        <div class="avatar">{{ session.get('name', 'U')[0].upper() }}</div>
+        <div style="overflow:hidden;">
+          <div style="font-size:0.9rem; font-weight:600; white-space:nowrap; text-overflow:ellipsis;">{{ session.get('name') }}</div>
+          <div style="font-size:0.75rem; color:var(--gray-500); text-transform:capitalize;">{{ session.get('role') }}</div>
+        </div>
+      </div>
+      <a href="{{ url_for('logout') }}" class="btn btn-ghost btn-sm mt-4" style="width:100%">Log Out</a>
+    </div>
+  </aside>
+
+  <!-- Mobile Bottom Nav -->
+  <nav class="bottom-nav">
+    <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+      <span class="bottom-nav-icon">📊</span>
+      <span>Home</span>
+    </a>
+    <a href="{{ url_for('planner') }}" class="{% if request.endpoint == 'planner' %}active{% endif %}">
+      <span class="bottom-nav-icon">📝</span>
+      <span>Planner</span>
+    </a>
+    <a href="{{ url_for('exams') }}" class="{% if request.endpoint == 'exams' %}active{% endif %}">
+      <span class="bottom-nav-icon">⏰</span>
+      <span>Exams</span>
+    </a>
+    <a href="{{ url_for('study_hub') }}" class="{% if request.endpoint == 'study_hub' %}active{% endif %}">
+      <span class="bottom-nav-icon">📚</span>
+      <span>Study</span>
+    </a>
+    <a href="{{ url_for('classmates') }}" class="{% if request.endpoint == 'classmates' %}active{% endif %}">
+      <span class="bottom-nav-icon">💬</span>
+      <span>Chat</span>
+    </a>
+  </nav>
+
+  <!-- Main Content Area -->
+  <div class="main-content">
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <button id="sidebar-toggle" class="sidebar-toggle">☰</button>
+        <h2 class="top-bar-title" style="display:none;">{% block header_title %}{% endblock %}</h2>
+        <div class="search-bar-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" placeholder="Search tasks, notes, classmates..." id="global-search">
+        </div>
+      </div>
+      <div class="top-bar-right">
+        <div class="notification-bell" id="notif-btn">
+          🔔<div class="notification-dot"></div>
+          
+          <div class="notif-dropdown" id="notif-dropdown">
+            <div class="notif-header">Notifications</div>
+            <div class="notif-list">
+              <a href="#" class="notif-item">
+                <div class="notif-title">Keep up the good work!</div>
+                <div class="notif-time">Just now</div>
+              </a>
+              <a href="{{ url_for('dashboard') }}" class="notif-item">
+                <div class="notif-title">Check your new assignments.</div>
+                <div class="notif-time">System</div>
+              </a>
+            </div>
+          </div>
+        </div>
+        <a href="{{ url_for('profile') }}" class="avatar" style="text-decoration:none;">{{ session.get('name', 'U')[0].upper() }}</a>
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div id="flash-container" style="position:fixed; top:80px; right:30px; z-index:999;">
+          {% for category, msg in messages %}
+            <div class="toast toast-{{ 'success' if category == 'success' else 'error' }} alert">
+              <span>{{ '✓' if category == 'success' else '✕' }}</span>
+              <span>{{ msg }}</span>
+              <button class="alert-close btn-ghost" style="margin-left:auto;border:none;background:none;color:white;cursor:pointer;">✕</button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <main class="page-content">
+      {{ self.content() }}
+    </main>
+  </div>
+</div>
+{% else %}
+<!-- PUBLIC / ADMIN SHELL -->
+<div class="public-content">
+  <header class="public-navbar">
+    <div class="public-nav-container">
+      <a href="{{ url_for('index') }}" class="brand-logo" style="text-decoration:none;">
+        <span class="brand-icon">🎓</span>
+        <span class="brand-name">Campus Connect <span class="badge badge-blue" style="font-size:0.7rem;vertical-align:middle;margin-left:4px;">3.0</span></span>
+      </a>
+      <div class="public-nav-links">
+        <a href="{{ url_for('index') }}" class="public-nav-link">Home</a>
+        <a href="{{ url_for('login') }}" class="btn btn-ghost btn-sm">Sign In</a>
+        <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm">Create Account</a>
+      </div>
+    </div>
+  </header>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div id="flash-container" style="position:fixed; top:80px; right:30px; z-index:999;">
+        {% for category, msg in messages %}
+          <div class="toast toast-{{ 'success' if category == 'success' else 'error' }} alert">
+            <span>{{ '✓' if category == 'success' else '✕' }}</span>
+            <span>{{ msg }}</span>
+            <button class="alert-close btn-ghost" style="margin-left:auto;border:none;background:none;color:white;cursor:pointer;">✕</button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+  
+  {{ self.content() }}
+</div>
+{% endif %}
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

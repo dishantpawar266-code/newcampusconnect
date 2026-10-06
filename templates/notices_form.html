@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if notice else 'New' }} Notice — Campus Connect 3.0{% endblock %}
+{% block page_title %}{{ 'Edit Notice' if notice else 'New Notice' }}{% endblock %}
+{% block content %}
+
+<div style="max-width:680px">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">{{ 'Edit Notice' if notice else 'Publish Notice' }}</span>
+    </div>
+    <div class="card-body">
+      <form method="POST">
+        <div class="form-group">
+          <label class="form-label" for="title">Notice Title <span class="required">*</span></label>
+          <input type="text" id="title" name="title" class="form-control"
+                 value="{{ notice.title if notice else '' }}"
+                 placeholder="Enter notice title..." required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="content">Content <span class="required">*</span></label>
+          <textarea id="content" name="content" class="form-control" rows="6"
+                    placeholder="Write your notice content here..." required>{{ notice.content if notice else '' }}</textarea>
+        </div>
+
+        {% if current_user.role == 'faculty' %}
+          <div class="form-group">
+            <label class="form-label" for="department">Target Department</label>
+            <select id="department" name="department" class="form-control">
+              <option value="">All Departments</option>
+              {% for dept in departments %}
+                <option value="{{ dept }}" {{ 'selected' if notice and notice.department == dept }}>{{ dept }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-hint">Leave empty to show to all departments.</div>
+          </div>
+        {% endif %}
+
+        <div style="display:flex;gap:12px;margin-top:8px">
+          <button type="submit" class="btn btn-primary">
+            {{ '💾 Save Changes' if notice else '📢 Publish Notice' }}
+          </button>
+          <a href="{{ url_for('notices') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

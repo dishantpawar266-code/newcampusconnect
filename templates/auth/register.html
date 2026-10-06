@@ -1,0 +1,456 @@
+{% extends "base.html" %}
+{% block title %}Create Account — Campus Connect 3.0{% endblock %}
+{% block content %}
+
+<div class="auth-page">
+  <div class="auth-container wide">
+    <div class="auth-card">
+      
+      <!-- Brand & Header -->
+      <div class="auth-card-header">
+        <div class="auth-logo-badge">🎓</div>
+        <span class="auth-badge">🚀 Join Campus Connect</span>
+        <h1 class="auth-title">Create Account</h1>
+        <p class="auth-subtitle">Select your campus role to personalize your academic experience</p>
+      </div>
+
+      <!-- Registration Form -->
+      <form method="POST" action="{{ url_for('register') }}" id="register-form" novalidate>
+
+        <!-- Role Selection Cards -->
+        <div class="form-group">
+          <label class="form-label" style="text-align:center; margin-bottom:12px;">
+            Choose Your Role <span class="required">*</span>
+          </label>
+          <div class="role-cards-grid" role="radiogroup" aria-label="Role Selection">
+            
+            <label class="role-card-label" for="role-student">
+              <input type="radio" name="role" id="role-student" value="student" class="role-card-input role-option" checked />
+              <div class="role-card-inner">
+                <span class="role-card-icon">🎓</span>
+                <span class="role-card-title">Student</span>
+                <span class="role-card-desc">Courses, notes & planner</span>
+              </div>
+            </label>
+
+            <label class="role-card-label" for="role-faculty">
+              <input type="radio" name="role" id="role-faculty" value="faculty" class="role-card-input role-option" />
+              <div class="role-card-inner">
+                <span class="role-card-icon">👨‍🏫</span>
+                <span class="role-card-title">Faculty</span>
+                <span class="role-card-desc">Teach, mentor & doubts</span>
+              </div>
+            </label>
+
+            <label class="role-card-label" for="role-club">
+              <input type="radio" name="role" id="role-club" value="club" class="role-card-input role-option" />
+              <div class="role-card-inner">
+                <span class="role-card-icon">🏛️</span>
+                <span class="role-card-title">Club</span>
+                <span class="role-card-desc">Events & student societies</span>
+              </div>
+            </label>
+
+          </div>
+        </div>
+
+        <!-- Common Identity Fields -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="name" id="name-label">
+              Full Name <span class="required">*</span>
+            </label>
+            <div class="input-group">
+              <span class="input-icon-left">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </span>
+              <input type="text" id="name" name="name" class="form-control"
+                     placeholder="e.g. Rahul Sharma" required />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="email">
+              Campus Email <span class="required">*</span>
+            </label>
+            <div class="input-group">
+              <span class="input-icon-left">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect width="20" height="16" x="2" y="4" rx="2"/>
+                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                </svg>
+              </span>
+              <input type="email" id="email" name="email" class="form-control"
+                     placeholder="rahul@campus.edu" required autocomplete="email" />
+            </div>
+          </div>
+        </div>
+
+        <!-- STUDENT SPECIFIC FIELDS -->
+        <div data-role-section="student" class="role-section-block">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="department-student">
+                Department <span class="required">*</span>
+              </label>
+              <div class="input-group">
+                <span class="input-icon-left">🏫</span>
+                <select id="department-student" name="department" class="form-control" required>
+                  <option value="">Select your department</option>
+                  {% for dept in departments %}
+                    <option value="{{ dept }}">{{ dept }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="roll_number">
+                Roll / PRN Number <span class="required">*</span>
+              </label>
+              <div class="input-group">
+                <span class="input-icon-left">🪪</span>
+                <input type="text" id="roll_number" name="roll_number" class="form-control"
+                       placeholder="e.g. 2024AIML042" />
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="year">
+              Year of Study <span class="required">*</span>
+            </label>
+            <div class="input-group">
+              <span class="input-icon-left">📅</span>
+              <select id="year" name="year" class="form-control">
+                <option value="">Select academic year</option>
+                <option value="FY">First Year (FY)</option>
+                <option value="SY">Second Year (SY)</option>
+                <option value="TY">Third Year (TY)</option>
+                <option value="Final">Final Year</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- FACULTY SPECIFIC FIELDS -->
+        <div data-role-section="faculty" class="role-section-block" style="display:none;">
+          <div class="form-group">
+            <label class="form-label" for="designation">
+              Academic Designation <span class="required">*</span>
+            </label>
+            <div class="input-group">
+              <span class="input-icon-left">💼</span>
+              <input type="text" id="designation" name="designation" class="form-control"
+                     placeholder="e.g. Assistant Professor, Head of Dept" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">
+              Department(s) You Teach <span class="required">*</span>
+            </label>
+            <div class="dept-chips-grid">
+              {% for dept in departments %}
+                <label class="dept-chip-label">
+                  <input type="checkbox" name="department" value="{{ dept }}" />
+                  <span>{{ dept }}</span>
+                </label>
+              {% endfor %}
+            </div>
+            <div class="form-hint">Select all departments you are affiliated with.</div>
+          </div>
+        </div>
+
+        <!-- CLUB SPECIFIC FIELDS -->
+        <div data-role-section="club" class="role-section-block" style="display:none;">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="club_name">
+                Official Club Name <span class="required">*</span>
+              </label>
+              <div class="input-group">
+                <span class="input-icon-left">🏛️</span>
+                <input type="text" id="club_name" name="club_name" class="form-control"
+                       placeholder="e.g. Robotics & AI Club" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="club_category">
+                Category <span class="required">*</span>
+              </label>
+              <div class="input-group">
+                <span class="input-icon-left">🏷️</span>
+                <select id="club_category" name="club_category" class="form-control">
+                  <option value="">Select category</option>
+                  <option value="Technical">Technical & Coding</option>
+                  <option value="Cultural">Cultural & Arts</option>
+                  <option value="Sports">Sports & Fitness</option>
+                  <option value="Literary">Literary & Debate</option>
+                  <option value="Social">Social & Community</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="description">About Your Club</label>
+            <textarea id="description" name="description" class="form-control"
+                      placeholder="Share a short bio, vision or upcoming activities..." rows="2" style="border-radius:var(--radius-md);"></textarea>
+          </div>
+        </div>
+
+        <!-- SECURITY & PASSWORD FIELDS -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="reg-password">
+              Password <span class="required">*</span>
+            </label>
+            <div class="input-group has-toggle">
+              <span class="input-icon-left">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              </span>
+              <input type="password" id="reg-password" name="password" class="form-control"
+                     placeholder="Min. 6 characters" required minlength="6" />
+              <button type="button" class="password-toggle-btn" id="toggle-reg-pass" title="Show or hide password">
+                <svg class="eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                <svg class="eye-closed" style="display:none;" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m9.88 9.88a3 3 0 1 0 4.24 4.24"/>
+                  <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
+                  <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
+                  <line x1="2" x2="22" y1="2" y2="22"/>
+                </svg>
+              </button>
+            </div>
+            
+            <!-- Password Strength Meter -->
+            <div class="password-strength-wrap">
+              <div class="strength-bars">
+                <div class="strength-bar" id="bar-1"></div>
+                <div class="strength-bar" id="bar-2"></div>
+                <div class="strength-bar" id="bar-3"></div>
+                <div class="strength-bar" id="bar-4"></div>
+              </div>
+              <div class="strength-info">
+                <span>Strength: <span class="strength-label" id="strength-text">Empty</span></span>
+                <span id="strength-hint">Min 6 characters</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="confirm_password">
+              Confirm Password <span class="required">*</span>
+            </label>
+            <div class="input-group has-toggle">
+              <span class="input-icon-left">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+                </svg>
+              </span>
+              <input type="password" id="confirm_password" name="confirm_password" class="form-control"
+                     placeholder="Repeat your password" required />
+              <button type="button" class="password-toggle-btn" id="toggle-confirm-pass" title="Show or hide password">
+                <svg class="eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                <svg class="eye-closed" style="display:none;" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m9.88 9.88a3 3 0 1 0 4.24 4.24"/>
+                  <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
+                  <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
+                  <line x1="2" x2="22" y1="2" y2="22"/>
+                </svg>
+              </button>
+            </div>
+            <div id="match-status" style="font-size:0.78rem; margin-top:6px; display:none;"></div>
+          </div>
+        </div>
+
+        <!-- Terms Agreement -->
+        <div style="margin:16px 0 24px;">
+          <label class="custom-checkbox">
+            <input type="checkbox" id="terms-agree" required checked />
+            <span style="font-size:0.85rem; color:var(--gray-600);">
+              I agree to the <a href="#" style="color:var(--primary); text-decoration:underline;">Campus Code of Conduct</a> and academic integrity policies.
+            </span>
+          </label>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" class="btn-submit" id="btn-register-submit">
+          <span class="btn-label">Create Campus Connect Account →</span>
+        </button>
+
+      </form>
+
+      <!-- Auth Footer -->
+      <div class="auth-footer">
+        Already have a registered account?
+        <a href="{{ url_for('login') }}">Sign in here</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // Role switcher logic
+  const roleInputs = document.querySelectorAll('.role-option');
+  const studentSection = document.querySelector('[data-role-section="student"]');
+  const facultySection = document.querySelector('[data-role-section="faculty"]');
+  const clubSection = document.querySelector('[data-role-section="club"]');
+  const nameLabel = document.getElementById('name-label');
+  const nameInput = document.getElementById('name');
+
+  function updateRole() {
+    const selected = document.querySelector('.role-option:checked');
+    const role = selected ? selected.value : 'student';
+
+    if (studentSection) studentSection.style.display = role === 'student' ? 'block' : 'none';
+    if (facultySection) facultySection.style.display = role === 'faculty' ? 'block' : 'none';
+    if (clubSection) clubSection.style.display = role === 'club' ? 'block' : 'none';
+
+    if (role === 'club') {
+      nameLabel.innerHTML = 'Club Lead / Representative Name <span class="required">*</span>';
+      nameInput.placeholder = 'e.g. Priya Patil (Lead)';
+    } else if (role === 'faculty') {
+      nameLabel.innerHTML = 'Faculty Full Name <span class="required">*</span>';
+      nameInput.placeholder = 'e.g. Dr. Ramesh Deshmukh';
+    } else {
+      nameLabel.innerHTML = 'Full Name <span class="required">*</span>';
+      nameInput.placeholder = 'e.g. Rahul Sharma';
+    }
+  }
+
+  roleInputs.forEach(input => input.addEventListener('change', updateRole));
+  updateRole();
+
+  // Password visibility toggles
+  function setupPassToggle(btnId, inputId) {
+    const btn = document.getElementById(btnId);
+    const input = document.getElementById(inputId);
+    if (btn && input) {
+      const eyeOpen = btn.querySelector('.eye-open');
+      const eyeClosed = btn.querySelector('.eye-closed');
+      btn.addEventListener('click', function () {
+        const isPassword = input.getAttribute('type') === 'password';
+        input.setAttribute('type', isPassword ? 'text' : 'password');
+        if (eyeOpen && eyeClosed) {
+          eyeOpen.style.display = isPassword ? 'none' : 'block';
+          eyeClosed.style.display = isPassword ? 'block' : 'none';
+        }
+      });
+    }
+  }
+  setupPassToggle('toggle-reg-pass', 'reg-password');
+  setupPassToggle('toggle-confirm-pass', 'confirm_password');
+
+  // Password strength meter
+  const passInput = document.getElementById('reg-password');
+  const confirmInput = document.getElementById('confirm_password');
+  const strengthBars = [
+    document.getElementById('bar-1'),
+    document.getElementById('bar-2'),
+    document.getElementById('bar-3'),
+    document.getElementById('bar-4')
+  ];
+  const strengthText = document.getElementById('strength-text');
+  const matchStatus = document.getElementById('match-status');
+
+  if (passInput) {
+    passInput.addEventListener('input', function () {
+      const val = this.value;
+      let score = 0;
+
+      if (val.length >= 6) score++;
+      if (val.length >= 10) score++;
+      if (/[A-Z]/.test(val) && /[a-z]/.test(val)) score++;
+      if (/[0-9]/.test(val) || /[^A-Za-z0-9]/.test(val)) score++;
+
+      strengthBars.forEach((bar, idx) => {
+        bar.className = 'strength-bar';
+        if (idx < score) {
+          if (score === 1) bar.classList.add('weak');
+          else if (score === 2) bar.classList.add('fair');
+          else if (score === 3) bar.classList.add('good');
+          else if (score >= 4) bar.classList.add('strong');
+        }
+      });
+
+      if (val.length === 0) {
+        strengthText.textContent = 'Empty';
+        strengthText.style.color = 'var(--gray-500)';
+      } else if (score <= 1) {
+        strengthText.textContent = 'Weak';
+        strengthText.style.color = 'var(--danger)';
+      } else if (score === 2) {
+        strengthText.textContent = 'Fair';
+        strengthText.style.color = 'var(--warning)';
+      } else if (score === 3) {
+        strengthText.textContent = 'Good';
+        strengthText.style.color = 'var(--secondary)';
+      } else {
+        strengthText.textContent = 'Strong ✓';
+        strengthText.style.color = 'var(--success)';
+      }
+
+      checkMatch();
+    });
+  }
+
+  function checkMatch() {
+    if (!confirmInput || !passInput) return;
+    if (confirmInput.value.length === 0) {
+      matchStatus.style.display = 'none';
+      return;
+    }
+    matchStatus.style.display = 'block';
+    if (confirmInput.value === passInput.value) {
+      matchStatus.innerHTML = '<span style="color:var(--success);">✓ Passwords match</span>';
+    } else {
+      matchStatus.innerHTML = '<span style="color:var(--danger);">✕ Passwords do not match</span>';
+    }
+  }
+
+  if (confirmInput) {
+    confirmInput.addEventListener('input', checkMatch);
+  }
+
+  // Register Form Submit Animation
+  const regForm = document.getElementById('register-form');
+  const regBtn = document.getElementById('btn-register-submit');
+  if (regForm && regBtn) {
+    regForm.addEventListener('submit', function (e) {
+      if (passInput && confirmInput && passInput.value !== confirmInput.value) {
+        e.preventDefault();
+        if (window.showToast) window.showToast('Passwords do not match. Please re-enter.', 'error');
+        return;
+      }
+      if (passInput && passInput.value.length < 6) {
+        e.preventDefault();
+        if (window.showToast) window.showToast('Password must be at least 6 characters.', 'error');
+        return;
+      }
+      if (regForm.checkValidity()) {
+        regBtn.classList.add('loading');
+        regBtn.innerHTML = '<span>Creating your account... 🚀</span>';
+      }
+    });
+  }
+});
+</script>
+
+{% endblock %}

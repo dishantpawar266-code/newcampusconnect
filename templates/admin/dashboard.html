@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard — Campus Connect 3.0</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<div class="app-shell">
+  <!-- Admin Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-logo">
+        <div class="brand-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)">🔧</div>
+        <div class="brand-text">
+          <span class="brand-name">Admin Panel</span>
+          <span class="brand-version">Campus Connect 3.0</span>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-user">
+      <div class="sidebar-user-info">
+        <div class="avatar avatar-sm" style="background:linear-gradient(135deg,#ef4444,#b91c1c)">A</div>
+        <div>
+          <div class="sidebar-user-name">Administrator</div>
+          <div class="sidebar-user-role">Developer Access</div>
+        </div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="sidebar-nav-section">Management</div>
+      <a href="#students" class="active"><span class="nav-icon">🎓</span> Students</a>
+      <a href="#faculty"><span class="nav-icon">👨‍🏫</span> Faculty</a>
+      <a href="#clubs"><span class="nav-icon">🏛️</span> Clubs</a>
+      <a href="#stats"><span class="nav-icon">📊</span> Statistics</a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="{{ url_for('logout') }}" style="color:#ef4444">🚪 Exit Admin</a>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <h1 class="top-bar-title">Developer Dashboard</h1>
+      </div>
+      <div class="top-bar-right">
+        <span class="role-badge role-admin">⚠ Developer Only</span>
+      </div>
+    </header>
+
+    <main class="page-content">
+
+      <!-- Flash messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            <span>{{ message }}</span>
+            <button class="alert-close">×</button>
+          </div>
+        {% endfor %}
+      {% endwith %}
+
+      <!-- Stats Grid -->
+      <div class="stat-grid" id="stats">
+        <div class="stat-card stat-blue">
+          <div class="stat-card-accent"></div>
+          <div class="stat-card-icon">🎓</div>
+          <div class="stat-card-value">{{ stats.total_students }}</div>
+          <div class="stat-card-label">Total Students</div>
+        </div>
+        <div class="stat-card stat-green">
+          <div class="stat-card-accent"></div>
+          <div class="stat-card-icon">👨‍🏫</div>
+          <div class="stat-card-value">{{ stats.total_faculty }}</div>
+          <div class="stat-card-label">Total Faculty</div>
+        </div>
+        <div class="stat-card stat-purple">
+          <div class="stat-card-accent"></div>
+          <div class="stat-card-icon">🏛️</div>
+          <div class="stat-card-value">{{ stats.total_clubs }}</div>
+          <div class="stat-card-label">Total Clubs</div>
+        </div>
+        <div class="stat-card stat-orange">
+          <div class="stat-card-accent"></div>
+          <div class="stat-card-icon">📚</div>
+          <div class="stat-card-value">{{ stats.total_notes }}</div>
+          <div class="stat-card-label">Notes Uploaded</div>
+        </div>
+        <div class="stat-card stat-cyan">
+          <div class="stat-card-accent"></div>
+          <div class="stat-card-icon">📋</div>
+          <div class="stat-card-value">{{ stats.total_assignments }}</div>
+          <div class="stat-card-label">Assignments</div>
+        </div>
+        <div class="stat-card stat-blue">
+          <div class="stat-card-accent"></div>
+          <div class="stat-card-icon">📢</div>
+          <div class="stat-card-value">{{ stats.total_notices }}</div>
+          <div class="stat-card-label">Notices</div>
+        </div>
+      </div>
+
+      <!-- Search bar -->
+      <div class="filter-bar" style="margin-bottom:24px">
+        <div class="search-input-wrap" style="flex:1">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="form-control search-input" id="admin-search"
+                 data-search-target=".user-row" placeholder="Search users by name or email..." />
+        </div>
+      </div>
+
+      <!-- Students Table -->
+      <div class="card" style="margin-bottom:28px" id="students">
+        <div class="card-header">
+          <span class="card-title">🎓 Students ({{ stats.total_students }})</span>
+        </div>
+        <div class="table-wrapper">
+          {% if stats.students %}
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Department</th>
+                <th>Roll No.</th>
+                <th>Year</th>
+                <th>Registered</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in stats.students %}
+              <tr class="user-row">
+                <td style="color:var(--gray-400)">{{ loop.index }}</td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div class="avatar avatar-sm">{{ (s.name or 'U')[0].upper() }}</div>
+                    <span style="font-weight:600">{{ s.name }}</span>
+                  </div>
+                </td>
+                <td style="color:var(--gray-600);font-size:13px">{{ s.email }}</td>
+                <td>
+                  {% if s.department %}
+                    <span class="badge badge-blue" style="font-size:10px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block">
+                      {{ s.department }}
+                    </span>
+                  {% else %}—{% endif %}
+                </td>
+                <td style="font-size:13px">{{ s.roll_number or '—' }}</td>
+                <td>{{ s.year or '—' }}</td>
+                <td style="font-size:12px;color:var(--gray-500)">{{ s.created_at[:10] if s.created_at else '—' }}</td>
+                <td>
+                  <span class="badge badge-{{ 'green' if s.get('is_active', True) else 'red' }}">
+                    {{ 'Active' if s.get('is_active', True) else 'Disabled' }}
+                  </span>
+                </td>
+                <td>
+                  <div style="display:flex;gap:6px">
+                    <form method="POST" action="{{ url_for('admin_toggle_user', uid=s.id) }}">
+                      <button type="submit" class="btn btn-ghost btn-sm" title="Toggle active">
+                        {{ '🔴' if s.get('is_active', True) else '🟢' }}
+                      </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('admin_delete_user', uid=s.id) }}"
+                          data-confirm="Permanently delete {{ s.name }}? This cannot be undone.">
+                      <button type="submit" class="btn btn-ghost btn-sm" style="color:#ef4444">🗑️</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+            <div class="empty-state"><div class="empty-state-text">No students registered yet.</div></div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Faculty Table -->
+      <div class="card" style="margin-bottom:28px" id="faculty">
+        <div class="card-header">
+          <span class="card-title">👨‍🏫 Faculty ({{ stats.total_faculty }})</span>
+        </div>
+        <div class="table-wrapper">
+          {% if stats.faculty %}
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Designation</th>
+                <th>Departments</th>
+                <th>Registered</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for f in stats.faculty %}
+              <tr class="user-row">
+                <td style="color:var(--gray-400)">{{ loop.index }}</td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div class="avatar avatar-sm" style="background:linear-gradient(135deg,#15803d,#166534)">
+                      {{ (f.name or 'F')[0].upper() }}
+                    </div>
+                    <span style="font-weight:600">{{ f.name }}</span>
+                  </div>
+                </td>
+                <td style="color:var(--gray-600);font-size:13px">{{ f.email }}</td>
+                <td style="font-size:13px">{{ f.designation or '—' }}</td>
+                <td>
+                  {% for dept in (f.departments or []) %}
+                    <span class="badge badge-green" style="font-size:10px;margin-bottom:2px;display:inline-block">{{ dept[:20] }}{% if dept|length > 20 %}...{% endif %}</span>
+                  {% else %}—{% endfor %}
+                </td>
+                <td style="font-size:12px;color:var(--gray-500)">{{ f.created_at[:10] if f.created_at else '—' }}</td>
+                <td>
+                  <span class="badge badge-{{ 'green' if f.get('is_active', True) else 'red' }}">
+                    {{ 'Active' if f.get('is_active', True) else 'Disabled' }}
+                  </span>
+                </td>
+                <td>
+                  <div style="display:flex;gap:6px">
+                    <form method="POST" action="{{ url_for('admin_toggle_user', uid=f.id) }}">
+                      <button type="submit" class="btn btn-ghost btn-sm">
+                        {{ '🔴' if f.get('is_active', True) else '🟢' }}
+                      </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('admin_delete_user', uid=f.id) }}"
+                          data-confirm="Delete {{ f.name }}?">
+                      <button type="submit" class="btn btn-ghost btn-sm" style="color:#ef4444">🗑️</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+            <div class="empty-state"><div class="empty-state-text">No faculty registered yet.</div></div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Clubs Table -->
+      <div class="card" id="clubs">
+        <div class="card-header">
+          <span class="card-title">🏛️ Clubs ({{ stats.total_clubs }})</span>
+        </div>
+        <div class="table-wrapper">
+          {% if stats.clubs %}
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Club Name</th>
+                <th>Email</th>
+                <th>Category</th>
+                <th>Description</th>
+                <th>Registered</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in stats.clubs %}
+              <tr class="user-row">
+                <td style="color:var(--gray-400)">{{ loop.index }}</td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div class="avatar avatar-sm" style="background:linear-gradient(135deg,#7c3aed,#5b21b6)">
+                      {{ (c.club_name or c.name or 'C')[0].upper() }}
+                    </div>
+                    <span style="font-weight:600">{{ c.club_name or c.name }}</span>
+                  </div>
+                </td>
+                <td style="color:var(--gray-600);font-size:13px">{{ c.email }}</td>
+                <td>
+                  {% if c.club_category %}
+                    <span class="badge badge-purple">{{ c.club_category }}</span>
+                  {% else %}—{% endif %}
+                </td>
+                <td style="font-size:13px;color:var(--gray-600);max-width:200px">
+                  {{ (c.description or '—')[:60] }}{% if c.description and c.description|length > 60 %}...{% endif %}
+                </td>
+                <td style="font-size:12px;color:var(--gray-500)">{{ c.created_at[:10] if c.created_at else '—' }}</td>
+                <td>
+                  <div style="display:flex;gap:6px">
+                    <form method="POST" action="{{ url_for('admin_delete_user', uid=c.id) }}"
+                          data-confirm="Delete {{ c.club_name or c.name }}?">
+                      <button type="submit" class="btn btn-ghost btn-sm" style="color:#ef4444">🗑️</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+            <div class="empty-state"><div class="empty-state-text">No clubs registered yet.</div></div>
+          {% endif %}
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script>
+  // Admin search
+  document.getElementById('admin-search').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('.user-row').forEach(row => {
+      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+
+  // Smooth scroll for sidebar links
+  document.querySelectorAll('.sidebar-nav a[href^="#"]').forEach(link => {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      const target = document.getElementById(this.getAttribute('href').slice(1));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+</script>
+</body>
+</html>

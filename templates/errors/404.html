@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}404 Not Found — Campus Connect 3.0{% endblock %}
+{% block page_title %}Page Not Found{% endblock %}
+{% block content %}
+<div class="card" style="max-width:600px;margin:0 auto">
+  <div class="empty-state">
+    <div class="empty-state-icon" style="font-size:64px;color:var(--gray-400)">404</div>
+    <div class="empty-state-title" style="font-size:24px;margin-bottom:12px">Oops! Page not found.</div>
+    <div class="empty-state-text" style="margin-bottom:24px">
+      The page you are looking for might have been removed, had its name changed, or is temporarily unavailable.
+    </div>
+    <a href="{{ url_for('dashboard') if current_user else url_for('index') }}" class="btn btn-primary">
+      ← Back to Home
+    </a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Messages — Campus Connect 3.0{% endblock %}
+{% block page_title %}Messages{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Messages</h1>
+    <p class="page-subtitle">Your conversations with classmates</p>
+  </div>
+  <a href="{{ url_for('classmates') }}" class="btn btn-primary">Find Classmate</a>
+</div>
+
+{% if conversations %}
+  <div class="card" style="overflow:hidden">
+    {% for conv in conversations %}
+      <a href="{{ url_for('chat', peer_id=conv.peer_id) }}"
+         style="display:flex;align-items:center;gap:14px;padding:16px 24px;border-bottom:1px solid var(--gray-100);transition:background .15s;text-decoration:none;color:inherit;{% if loop.last %}border-bottom:none{% endif %}"
+         class="conv-row">
+        <div class="avatar avatar-md">{{ (conv.peer_name or '?')[0].upper() }}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:15px;color:var(--gray-900)">{{ conv.peer_name }}</div>
+          <div class="truncate" style="font-size:13px;color:var(--gray-500);margin-top:2px">
+            {{ conv.last_message or 'No messages yet' }}
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--gray-400);white-space:nowrap;flex-shrink:0">
+          {{ conv.last_message_at[:10] if conv.last_message_at else '' }}
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card">
+    <div class="empty-state">
+      <div class="empty-state-icon">💬</div>
+      <div class="empty-state-title">No conversations yet.</div>
+      <div class="empty-state-text">
+        Start a conversation by visiting a classmate's profile or the Classmates page.
+      </div>
+      <a href="{{ url_for('classmates') }}" class="btn btn-primary" style="margin-top:16px">👥 Browse Classmates</a>
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}

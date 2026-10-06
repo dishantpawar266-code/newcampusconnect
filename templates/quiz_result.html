@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Quiz Result — Campus Connect 3.0{% endblock %}
+{% block page_title %}Quiz Result{% endblock %}
+{% block content %}
+
+<div style="max-width:720px">
+  {% if result %}
+    <!-- Score Card -->
+    <div class="card" style="margin-bottom:24px;text-align:center;overflow:hidden">
+      <div style="background:{% if result.score / result.total >= 0.7 %}linear-gradient(135deg,#15803d,#166534){% elif result.score / result.total >= 0.4 %}linear-gradient(135deg,#d97706,#b45309){% else %}linear-gradient(135deg,#dc2626,#b91c1c){% endif %};color:#fff;padding:40px 24px">
+        <div style="font-size:64px;font-weight:800;font-family:var(--font-display);margin-bottom:8px">
+          {{ result.score }}/{{ result.total }}
+        </div>
+        <div style="font-size:18px;font-weight:600;margin-bottom:4px">
+          {% set pct = (result.score / result.total * 100) | int %}
+          {% if pct >= 70 %}🎉 Excellent work!
+          {% elif pct >= 40 %}👍 Good effort!
+          {% else %}📚 Keep studying!
+          {% endif %}
+        </div>
+        <div style="opacity:.8;font-size:14px">{{ pct }}% score · {{ result.quiz_title }}</div>
+      </div>
+      <div class="card-body">
+        <div class="progress-bar" style="margin-bottom:16px">
+          <div class="progress-fill" style="width:{{ pct }}%"></div>
+        </div>
+        <div style="font-size:13px;color:var(--gray-500)">
+          Submitted on {{ result.submitted_at[:10] if result.submitted_at else 'N/A' }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Answer Review -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Answer Review</span>
+      </div>
+      <div class="card-body" style="padding:0">
+        {% for i, ans in enumerate(result.answers) %}
+          <div style="padding:16px 24px;border-bottom:1px solid var(--gray-100);{% if loop.last %}border-bottom:none{% endif %}">
+            <div style="font-weight:600;font-size:14px;color:var(--gray-800);margin-bottom:8px">
+              Q{{ i+1 }}. {{ ans.question }}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:13px">
+              <div style="color:{% if ans.is_correct %}#15803d{% else %}#dc2626{% endif %}">
+                {% if ans.is_correct %}✓{% else %}✕{% endif %}
+                Your answer: Option {{ (ans.selected | int) + 1 if ans.selected != '' else 'Not answered' }}
+              </div>
+              {% if not ans.is_correct %}
+                <div style="color:#15803d">✓ Correct: Option {{ (ans.correct | int) + 1 }}</div>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div style="margin-top:20px">
+      <a href="{{ url_for('quizzes') }}" class="btn btn-secondary">← Back to Quizzes</a>
+    </div>
+  {% else %}
+    <div class="card">
+      <div class="empty-state">
+        <div class="empty-state-icon">📝</div>
+        <div class="empty-state-title">No result found.</div>
+        <div class="empty-state-text">You haven't attempted this quiz yet.</div>
+        <a href="{{ url_for('quizzes') }}" class="btn btn-primary" style="margin-top:16px">Go to Quizzes</a>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}

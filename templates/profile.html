@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}My Profile — Campus Connect 3.0{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+{% block content %}
+
+<div style="max-width:720px">
+  <!-- Profile Header Card -->
+  <div class="card" style="margin-bottom:24px">
+    <div class="card-body">
+      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+        <div class="avatar avatar-xl" style="font-size:38px">
+          {{ (user.name or 'U')[0].upper() }}
+        </div>
+        <div>
+          <h2 style="font-size:24px;font-weight:800;color:var(--gray-900);margin-bottom:6px">{{ user.name }}</h2>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span class="role-badge role-{{ user.role }}">{{ user.role | title }}</span>
+            {% if user.role == 'student' and user.department %}
+              <span class="badge badge-blue">{{ user.department }}</span>
+            {% endif %}
+            {% if user.role == 'student' and user.roll_number %}
+              <span class="badge badge-gray">Roll: {{ user.roll_number }}</span>
+            {% endif %}
+            {% if user.role == 'faculty' and user.designation %}
+              <span class="badge badge-green">{{ user.designation }}</span>
+            {% endif %}
+            {% if user.role == 'club' and user.club_category %}
+              <span class="badge badge-purple">{{ user.club_category }}</span>
+            {% endif %}
+          </div>
+          <div style="font-size:13px;color:var(--gray-500);margin-top:8px">{{ user.email }}</div>
+          <div style="font-size:12px;color:var(--gray-400);margin-top:2px">
+            Member since {{ user.created_at[:10] if user.created_at else 'N/A' }}
+          </div>
+        </div>
+      </div>
+      {% if user.bio %}
+        <div style="margin-top:20px;padding:16px;background:var(--gray-50);border-radius:var(--border-radius-sm);font-size:14px;color:var(--gray-700)">
+          {{ user.bio }}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Edit Profile Form -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Edit Profile</span>
+    </div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('profile') }}">
+        <div class="form-group">
+          <label class="form-label" for="name">Full Name <span class="required">*</span></label>
+       <input type="text" id="name" name="name" class="form-control" value="{{ user.name }}" required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="bio">Bio / About</label>
+          <textarea id="bio" name="bio" class="form-control" rows="3"
+                    placeholder="Tell others a bit about yourself...">{{ user.bio or '' }}</textarea>
+        </div>
+
+        {% if user.role == 'student' %}
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="department">Department</label>
+              <select id="department" name="department" class="form-control">
+                <option value="">Select department</option>
+                {% for dept in departments %}
+                  <option value="{{ dept }}" {{ 'selected' if user.department == dept }}>{{ dept }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="roll_number">Roll Number</label>
+              <input type="text" id="roll_number" name="roll_number" class="form-control"
+                     value="{{ user.roll_number or '' }}" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="year">Year of Study</label>
+            <select id="year" name="year" class="form-control">
+              <option value="">Select year</option>
+              {% for yr in ['FY', 'SY', 'TY', 'Final'] %}
+                <option value="{{ yr }}" {{ 'selected' if user.year == yr }}>{{ yr }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+        {% elif user.role == 'faculty' %}
+          <div class="form-group">
+            <label class="form-label">Departments</label>
+            {% for dept in departments %}
+              <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:14px;cursor:pointer">
+                <input type="checkbox" name="department" value="{{ dept }}"
+                       {{ 'checked' if user.departments and dept in user.departments }} />
+                {{ dept }}
+              </label>
+            {% endfor %}
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="designation">Designation</label>
+            <input type="text" id="designation" name="designation" class="form-control"
+                   value="{{ user.designation or '' }}" placeholder="e.g. Assistant Professor" />
+          </div>
+
+        {% elif user.role == 'club' %}
+          <div class="form-group">
+            <label class="form-label" for="club_category">Club Category</label>
+            <select id="club_category" name="club_category" class="form-control">
+              {% for cat in ['Technical','Cultural','Sports','Literary','Social','Other'] %}
+                <option value="{{ cat }}" {{ 'selected' if user.club_category == cat }}>{{ cat }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="description">Club Description</label>
+            <textarea id="description" name="description" class="form-control" rows="3">{{ user.description or '' }}</textarea>
+          </div>
+        {% endif %}
+
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

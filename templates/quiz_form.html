@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Create Quiz — Campus Connect 3.0{% endblock %}
+{% block page_title %}Create Quiz{% endblock %}
+{% block content %}
+
+<div style="max-width:800px">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">📝 Create New Quiz</span>
+    </div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('create_quiz') }}" id="quiz-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="title">Quiz Title <span class="required">*</span></label>
+            <input type="text" id="title" name="title" class="form-control"
+                   placeholder="e.g. Python Basics Quiz" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="department">Target Department</label>
+            <select id="department" name="department" class="form-control">
+              <option value="">All Departments</option>
+              {% for dept in departments %}
+                <option value="{{ dept }}">{{ dept }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Questions Builder -->
+        <div style="margin-top:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <label class="form-label" style="margin-bottom:0">Questions <span class="required">*</span></label>
+            <button type="button" class="btn btn-secondary btn-sm" id="add-question-btn">
+              + Add Question
+            </button>
+          </div>
+          <div id="quiz-builder">
+            <div id="questions-container"></div>
+            <input type="hidden" name="questions_json" id="questions-json" value="[]" />
+          </div>
+          <div id="no-questions-msg" style="padding:24px;text-align:center;color:var(--gray-400);border:2px dashed var(--gray-200);border-radius:var(--border-radius-sm)">
+            Click "+ Add Question" to begin building your quiz.
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-top:24px">
+          <button type="submit" class="btn btn-primary">📝 Create Quiz</button>
+          <a href="{{ url_for('quizzes') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // Hide the placeholder when questions exist
+  const orig = window.renderQuizQuestions;
+  function renderQuizQuestionsPatched() {
+    orig && orig();
+    const msg = document.getElementById('no-questions-msg');
+    if (msg) msg.style.display = quizQuestions.length ? 'none' : '';
+  }
+  // Override after app.js loads
+  document.addEventListener('DOMContentLoaded', () => {
+    const addBtn = document.getElementById('add-question-btn');
+    if (addBtn) {
+      addBtn._origClick = addBtn.onclick;
+      addBtn.addEventListener('click', () => {
+        setTimeout(renderQuizQuestionsPatched, 50);
+      });
+    }
+    renderQuizQuestionsPatched();
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Quizzes — Campus Connect 3.0{% endblock %}
+{% block page_title %}Quizzes{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Quizzes</h1>
+    <p class="page-subtitle">Online assessments created by faculty</p>
+  </div>
+  {% if current_user.role == 'faculty' %}
+    <a href="{{ url_for('create_quiz') }}" class="btn btn-primary">+ Create Quiz</a>
+  {% endif %}
+</div>
+
+{% if quizzes %}
+  <div class="item-list">
+    {% for quiz in quizzes %}
+      <div class="item-card">
+        <div class="item-card-top">
+          <div>
+            <div class="item-card-title">{{ quiz.title }}</div>
+            <div class="item-card-meta">
+              <span class="badge badge-{{ 'green' if quiz.is_active else 'gray' }}">
+                {{ 'Active' if quiz.is_active else 'Inactive' }}
+              </span>
+              {% if quiz.department %}
+                <span class="meta-item">🏢 {{ quiz.department }}</span>
+              {% endif %}
+              <span class="meta-item">👤 {{ quiz.creator_name }}</span>
+              <span class="meta-item">📝 {{ quiz.questions | length }} question(s)</span>
+              <span class="meta-item">📅 {{ quiz.created_at[:10] if quiz.created_at else '' }}</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            {% if current_user.role == 'student' and quiz.is_active %}
+              <a href="{{ url_for('attempt_quiz', quiz_id=quiz.id) }}" class="btn btn-primary btn-sm">
+                📝 Attempt
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card">
+    <div class="empty-state">
+      <div class="empty-state-icon">📝</div>
+      <div class="empty-state-title">No quizzes available yet.</div>
+      <div class="empty-state-text">
+        {% if current_user.role == 'faculty' %}
+          Create your first quiz to test student knowledge.
+        {% else %}
+          Your faculty will create quizzes here. Stay tuned!
+        {% endif %}
+      </div>
+      {% if current_user.role == 'faculty' %}
+        <a href="{{ url_for('create_quiz') }}" class="btn btn-primary" style="margin-top:16px">+ Create First Quiz</a>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}

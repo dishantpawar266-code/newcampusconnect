@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block header_title %}Ask Planner{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <div>
+    <h1 class="hero-title" style="font-size:2rem; margin-bottom:5px;">Ask Planner</h1>
+    <p class="text-muted" style="color:var(--gray-500);">Organize your academic tasks and stay ahead.</p>
+  </div>
+  <button class="btn btn-primary" data-modal-open="task-modal">+ New Task</button>
+</div>
+
+<!-- Progress Overview -->
+{% set total = tasks|length %}
+{% set completed = tasks|selectattr("is_completed", "equalto", true)|list|length %}
+{% set progress = (completed / total * 100) if total > 0 else 0 %}
+
+<div class="card mb-6">
+  <div class="progress-wrap">
+    <div class="progress-header">
+      <span>Today's Progress</span>
+      <span>{{ completed }} / {{ total }} tasks completed</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width: {{ progress }}%;"></div>
+    </div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <!-- PENDING TASKS -->
+  <div>
+    <h3 class="mb-4">Pending Tasks</h3>
+    {% for task in tasks if not task.is_completed %}
+      <div class="task-item" id="task-{{ task.id }}">
+        <div class="task-checkbox" onclick="toggleTask('{{ task.id }}')"></div>
+        <div class="task-content">
+          <div class="flex justify-between items-center">
+            <h4 class="task-title">{{ task.title }}</h4>
+            <span class="badge {% if task.priority == 'High' %}badge-red{% elif task.priority == 'Medium' %}badge-yellow{% else %}badge-green{% endif %}">
+              {{ task.priority }}
+            </span>
+          </div>
+          <div class="task-meta mt-2">
+            {% if task.subject %}<span>📚 {{ task.subject }}</span>{% endif %}
+            {% if task.due_date %}<span>📅 Due: {{ task.due_date }}</span>{% endif %}
+            {% if task.est_time %}<span>⏳ {{ task.est_time }}</span>{% endif %}
+          </div>
+          {% if task.description %}
+            <p class="mt-2" style="font-size:0.85rem; color:var(--gray-600);">{{ task.description }}</p>
+          {% endif %}
+        </div>
+        <button class="btn-ghost btn-sm" onclick="deleteTask('{{ task.id }}')" style="color:var(--danger); border:none;">✕</button>
+      </div>
+    {% else %}
+      <div class="card text-center text-muted" style="border: 2px dashed var(--gray-200); background:transparent;">
+        No pending tasks! Time to relax or add a new one.
+      </div>
+    {% endfor %}
+  </div>
+
+  <!-- COMPLETED TASKS -->
+  <div>
+    <h3 class="mb-4" style="color:var(--success);">Completed Tasks</h3>
+    {% for task in tasks if task.is_completed %}
+      <div class="task-item completed" id="task-{{ task.id }}">
+        <div class="task-checkbox checked" onclick="toggleTask('{{ task.id }}')">✓</div>
+        <div class="task-content">
+          <div class="flex justify-between items-center">
+            <h4 class="task-title">{{ task.title }}</h4>
+          </div>
+          <div class="task-meta mt-2">
+            {% if task.subject %}<span>📚 {{ task.subject }}</span>{% endif %}
+          </div>
+        </div>
+        <button class="btn-ghost btn-sm" onclick="deleteTask('{{ task.id }}')" style="color:var(--danger); border:none;">✕</button>
+      </div>
+    {% else %}
+      <div class="text-muted text-center mt-4">No completed tasks yet.</div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Task Modal -->
+<div class="modal-overlay" id="task-modal">
+  <div class="modal-content">
+    <div class="card-header">
+      <h3 class="card-title">Create New Task</h3>
+      <button class="btn-ghost" data-modal-close="task-modal" style="border:none;">✕</button>
+    </div>
+    <form id="task-form">
+      <div class="form-group">
+        <label class="form-label">Task Title *</label>
+        <input type="text" id="task-title" class="form-control" placeholder="e.g. OS Assignment 3" required>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Subject</label>
+          <input type="text" id="task-subject" class="form-control" placeholder="e.g. Operating Systems">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select id="task-priority" class="form-control">
+            <option value="High">High</option>
+            <option value="Medium" selected>Medium</option>
+            <option value="Low">Low</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Due Date</label>
+          <input type="date" id="task-due" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Est. Time</label>
+          <input type="text" id="task-est" class="form-control" placeholder="e.g. 2 hours">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description (Optional)</label>
+        <textarea id="task-desc" class="form-control" rows="2" placeholder="Task details..."></textarea>
+      </div>
+      <div class="flex justify-between mt-4">
+        <button type="button" class="btn btn-ghost" data-modal-close="task-modal">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Task</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.getElementById('task-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const data = {
+      title: document.getElementById('task-title').value,
+      subject: document.getElementById('task-subject').value,
+      priority: document.getElementById('task-priority').value,
+      due_date: document.getElementById('task-due').value,
+      est_time: document.getElementById('task-est').value,
+      description: document.getElementById('task-desc').value,
+    };
+    fetch('/api/tasks', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    }).then(r => r.json()).then(res => {
+      if(res.ok) window.location.reload();
+      else alert(res.error || 'Failed to save task');
+    });
+  });
+
+  function toggleTask(id) {
+    fetch('/api/tasks/'+id+'/toggle', {method: 'POST'})
+      .then(r => r.json()).then(res => {
+        if(res.ok) window.location.reload();
+      });
+  }
+
+  function deleteTask(id) {
+    if(confirm('Delete this task?')) {
+      fetch('/api/tasks/'+id, {method: 'DELETE'})
+        .then(r => r.json()).then(res => {
+          if(res.ok) window.location.reload();
+        });
+    }
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}500 Server Error — Campus Connect 3.0{% endblock %}
+{% block page_title %}Internal Server Error{% endblock %}
+{% block content %}
+<div class="card" style="max-width:600px;margin:0 auto">
+  <div class="empty-state">
+    <div class="empty-state-icon" style="font-size:64px;color:var(--gray-400)">500</div>
+    <div class="empty-state-title" style="font-size:24px;margin-bottom:12px">Internal Server Error</div>
+    <div class="empty-state-text" style="margin-bottom:24px">
+      Something went wrong on our end. Please try again later or contact the administrator if the problem persists.
+    </div>
+    <a href="{{ url_for('dashboard') if current_user else url_for('index') }}" class="btn btn-primary">
+      ← Back to Home
+    </a>
+  </div>
+</div>
+{% endblock %}

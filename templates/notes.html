@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Notes & Resources — Campus Connect 3.0{% endblock %}
+{% block page_title %}Notes & Resources{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Notes & Resources</h1>
+    <p class="page-subtitle">Academic materials uploaded by students and faculty</p>
+  </div>
+  <a href="{{ url_for('upload_note') }}" class="btn btn-primary">📤 Upload Note</a>
+</div>
+
+<div class="filter-bar">
+  <div class="search-input-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" class="form-control search-input" id="client-search"
+           data-search-target=".searchable-item" placeholder="Search notes..." />
+  </div>
+  <select id="dept-filter" class="form-control" style="width:auto;min-width:200px">
+    <option value="">All Departments</option>
+    {% for dept in departments %}
+      <option value="{{ dept }}" {{ 'selected' if request.args.get('department') == dept }}>{{ dept }}</option>
+    {% endfor %}
+  </select>
+</div>
+
+{% if notes %}
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px">
+    {% for note in notes %}
+      <div class="item-card searchable-item" style="display:flex;flex-direction:column">
+        <div style="display:flex;align-items:flex-start;gap:14px">
+          <div class="file-icon file-{{ note.file_type }}">
+            {% if note.file_type in ('jpg','jpeg','png','webp') %}🖼️
+            {% elif note.file_type in ('ppt','pptx') %}📊
+            {% else %}📄{% endif %}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div class="item-card-title truncate">{{ note.title }}</div>
+            <div style="font-size:12px;color:var(--gray-500);margin-top:3px">
+              {% if note.subject %}{{ note.subject }} · {% endif %}
+              {{ note.file_type.upper() }}
+            </div>
+          </div>
+        </div>
+        {% if note.description %}
+          <div class="item-card-body" style="margin-top:12px;font-size:13px">{{ note.description[:120] }}{% if note.description|length > 120 %}...{% endif %}</div>
+        {% endif %}
+        <div class="item-card-meta" style="margin-top:12px">
+          {% if note.department %}
+            <span class="badge badge-blue" style="font-size:10px">{{ note.department[:20] }}{% if note.department|length > 20 %}...{% endif %}</span>
+          {% endif %}
+          <span>👤 {{ note.uploader_name }}</span>
+          <span>{{ note.created_at[:10] if note.created_at else '' }}</span>
+        </div>
+        <div style="margin-top:12px">
+          <a href="{{ note.file_url }}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">
+            ⬇️ Download
+          </a>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card">
+    <div class="empty-state">
+      <div class="empty-state-icon">📚</div>
+      <div class="empty-state-title">No notes uploaded yet.</div>
+      <div class="empty-state-text">Be the first to share academic resources with your peers.</div>
+      <a href="{{ url_for('upload_note') }}" class="btn btn-primary" style="margin-top:16px">📤 Upload First Note</a>
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}

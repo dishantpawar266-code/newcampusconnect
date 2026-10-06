@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Notices — Campus Connect 3.0{% endblock %}
+{% block page_title %}Notices{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Notices</h1>
+    <p class="page-subtitle">Department announcements and club updates</p>
+  </div>
+  {% if current_user.role in ('faculty', 'club') %}
+    <a href="{{ url_for('create_notice') }}" class="btn btn-primary">+ New Notice</a>
+  {% endif %}
+</div>
+
+<!-- Filters -->
+<div class="filter-bar">
+  <div class="search-input-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" class="form-control search-input" id="client-search"
+           data-search-target=".searchable-item"
+           placeholder="Search notices..." />
+  </div>
+  <select id="dept-filter" class="form-control" style="width:auto;min-width:200px">
+    <option value="">All Departments</option>
+    {% for dept in departments %}
+      <option value="{{ dept }}" {{ 'selected' if request.args.get('department') == dept }}>{{ dept }}</option>
+    {% endfor %}
+  </select>
+  <select class="form-control" id="category-filter" style="width:auto">
+    <option value="">All Categories</option>
+    <option value="academic">Academic</option>
+    <option value="club">Club</option>
+  </select>
+</div>
+
+<!-- Notices List -->
+{% if notices %}
+  <div class="item-list" id="notices-list">
+    {% for notice in notices %}
+      <div class="item-card searchable-item" data-category="{{ notice.category }}">
+        <div class="item-card-top">
+          <div>
+            <div class="item-card-title">{{ notice.title }}</div>
+            <div class="item-card-meta">
+              <span class="badge badge-{{ 'purple' if notice.category == 'club' else 'blue' }}">
+                {{ notice.category | title }}
+              </span>
+              {% if notice.department %}
+                <span class="meta-item">🏢 {{ notice.department }}</span>
+              {% endif %}
+              <span class="meta-item">👤 {{ notice.author_name }}</span>
+              <span class="meta-item">📅 {{ notice.created_at[:10] if notice.created_at else '' }}</span>
+            </div>
+          </div>
+          {% if current_user.uid == notice.author_uid %}
+            <div style="display:flex;gap:8px">
+              <a href="{{ url_for('edit_notice', notice_id=notice.id) }}" class="btn btn-ghost btn-sm">✏️</a>
+              <form method="POST" action="{{ url_for('delete_notice', notice_id=notice.id) }}"
+                    data-confirm="Are you sure you want to delete this notice?">
+                <button type="submit" class="btn btn-ghost btn-sm" style="color:#ef4444">🗑️</button>
+              </form>
+            </div>
+          {% endif %}
+        </div>
+        <div class="item-card-body">{{ notice.content }}</div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card">
+    <div class="empty-state">
+      <div class="empty-state-icon">📭</div>
+      <div class="empty-state-title">No notices available yet.</div>
+      <div class="empty-state-text">
+        {% if current_user.role in ('faculty', 'club') %}
+          Be the first to publish a notice for your department or club.
+        {% else %}
+          Faculty and clubs will publish notices here.
+        {% endif %}
+      </div>
+      {% if current_user.role in ('faculty', 'club') %}
+        <a href="{{ url_for('create_notice') }}" class="btn btn-primary" style="margin-top:16px">+ Publish Notice</a>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // Category filter
+  document.getElementById('category-filter').addEventListener('change', function() {
+    const val = this.value;
+    document.querySelectorAll('.searchable-item').forEach(item => {
+      if (!val || item.dataset.category === val) {
+        item.style.display = '';
+      } else {
+        item.style.display = 'none';
+      }
+    });
+  });
+</script>
+{% endblock %}
