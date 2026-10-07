@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Campus Connect 3.0</title>
+  <title>{% block title %}Campus Connect — Modern Student Platform{% endblock %}</title>
+  <meta name="description" content="Campus Connect — All-in-one platform for student productivity, task planning, focus timers, exam countdowns and classmate collaboration.">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
@@ -146,23 +147,57 @@
 {% else %}
 {# PUBLIC SHELL #}
 <div class="public-content">
-  <header class="public-navbar">
+  <header class="public-navbar" id="public-header">
     <div class="public-nav-container">
-      <a href="{{ url_for('index') }}" class="brand-logo" style="text-decoration:none;">
+      <a href="{{ url_for('index') }}" class="brand-logo" aria-label="Campus Connect Home">
         <span class="brand-icon">🎓</span>
-        <span class="brand-name">Campus Connect <span class="badge badge-blue" style="font-size:0.7rem;vertical-align:middle;margin-left:4px;">3.0</span></span>
+        <span class="brand-name">Campus Connect</span>
       </a>
-      <div class="public-nav-links">
-        <a href="{{ url_for('index') }}" class="public-nav-link">Home</a>
-        <a href="{{ url_for('login') }}" class="btn btn-ghost btn-sm">Sign In</a>
-        <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm">Create Account</a>
+      
+      <!-- Desktop Navigation Links -->
+      <nav class="public-nav-links" aria-label="Main Navigation">
+        <a href="{{ url_for('index') }}" class="public-nav-link {% if request.endpoint == 'index' %}active{% endif %}">Home</a>
+        <a href="{{ url_for('index') }}#features" class="public-nav-link">Features</a>
+        <a href="{{ url_for('login') }}" class="btn btn-ghost btn-sm nav-btn-signin">Sign In</a>
+        <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm nav-btn-cta">Create Account</a>
+      </nav>
+
+      <!-- Mobile Actions (Sign In + Hamburger) -->
+      <div class="public-nav-actions-mobile">
+        <a href="{{ url_for('login') }}" class="btn btn-ghost btn-xs mobile-quick-signin">Sign In</a>
+        <button class="public-mobile-toggle" id="public-mobile-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+        </button>
       </div>
     </div>
+
+    <!-- Mobile Drawer Navigation -->
+    <div class="public-mobile-menu" id="public-mobile-menu" aria-hidden="true">
+      <div class="public-mobile-menu-inner">
+        <div class="public-mobile-nav-group">
+          <div class="public-mobile-group-title">Navigation</div>
+          <a href="{{ url_for('index') }}" class="public-mobile-nav-link {% if request.endpoint == 'index' %}active{% endif %}">
+            <span class="mobile-nav-icon">🏠</span> Home
+          </a>
+          <a href="{{ url_for('index') }}#features" class="public-mobile-nav-link">
+            <span class="mobile-nav-icon">✨</span> Platform Modules
+          </a>
+        </div>
+        <div class="public-mobile-divider"></div>
+        <div class="public-mobile-auth-actions">
+          <a href="{{ url_for('login') }}" class="btn btn-outline btn-md w-full text-center">Sign In to Dashboard</a>
+          <a href="{{ url_for('register') }}" class="btn btn-primary btn-md w-full text-center">Create Free Account</a>
+        </div>
+      </div>
+    </div>
+    <div class="public-mobile-backdrop" id="public-mobile-backdrop"></div>
   </header>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div id="flash-container" style="position:fixed; top:80px; right:30px; z-index:999;">
+      <div id="flash-container" class="public-flash-container">
         {% for category, msg in messages %}
           <div class="toast toast-{{ 'success' if category == 'success' else 'error' }} alert">
             <span>{{ '✓' if category == 'success' else '✕' }}</span>

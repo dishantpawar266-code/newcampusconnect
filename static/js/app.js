@@ -1,8 +1,46 @@
 // ============================================================
-// Campus Connect 3.0 — Main JavaScript
+// Campus Connect — Main JavaScript
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', function () {
+
+  // --- Public mobile navbar menu toggle ---
+  const publicMobileToggle = document.getElementById('public-mobile-toggle');
+  const publicMobileMenu = document.getElementById('public-mobile-menu');
+  const publicMobileBackdrop = document.getElementById('public-mobile-backdrop');
+
+  if (publicMobileToggle && publicMobileMenu) {
+    const setMobileMenuState = (isOpen) => {
+      publicMobileMenu.classList.toggle('open', isOpen);
+      publicMobileToggle.classList.toggle('open', isOpen);
+      publicMobileToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      publicMobileMenu.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+      if (publicMobileBackdrop) {
+        publicMobileBackdrop.classList.toggle('open', isOpen);
+      }
+      document.body.classList.toggle('public-menu-open', isOpen);
+    };
+
+    publicMobileToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const willOpen = !publicMobileMenu.classList.contains('open');
+      setMobileMenuState(willOpen);
+    });
+
+    if (publicMobileBackdrop) {
+      publicMobileBackdrop.addEventListener('click', () => setMobileMenuState(false));
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && publicMobileMenu.classList.contains('open')) {
+        setMobileMenuState(false);
+      }
+    });
+
+    publicMobileMenu.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => setMobileMenuState(false));
+    });
+  }
 
   // --- Sidebar mobile toggle ---
   const sidebarToggle = document.getElementById('sidebar-toggle');

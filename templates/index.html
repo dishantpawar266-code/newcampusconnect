@@ -1,60 +1,326 @@
 {% extends "base.html" %}
 
-{% block content %}
-<div class="hero-section animate-fade-up">
-  <div style="display:inline-block; padding:8px 16px; background:var(--primary-light); color:var(--primary); border-radius:var(--radius-full); font-weight:600; font-size:0.9rem; margin-bottom:20px;">
-    🚀 Welcome to Campus Connect 3.0
-  </div>
-  
-  <h1 class="hero-title">
-    Your Campus.<br>
-    Your Community.<br>
-    <span>Your Connect.</span>
-  </h1>
-  
-  <p class="hero-subtitle">
-    One smart platform for learning, collaboration, communication and student productivity. Built for the modern student.
-  </p>
-  
-  <div class="flex items-center justify-center gap-4">
-    <a href="{{ url_for('login') }}" class="btn btn-primary" style="padding:15px 30px; font-size:1.1rem; border-radius:var(--radius-full);">Sign In to Dashboard</a>
-    <a href="{{ url_for('register') }}" class="btn btn-outline" style="padding:15px 30px; font-size:1.1rem; border-radius:var(--radius-full); background:white;">Create Account</a>
-  </div>
-  
-  <div class="hero-features">
-    <div class="feature-pill">
-      <span style="font-size:1.2rem;">📚</span> Study Hub & Timer
-    </div>
-    <div class="feature-pill">
-      <span style="font-size:1.2rem;">📝</span> Smart Task Planner
-    </div>
-    <div class="feature-pill">
-      <span style="font-size:1.2rem;">⏰</span> Exam Countdown
-    </div>
-    <div class="feature-pill">
-      <span style="font-size:1.2rem;">💬</span> Classmate Chat
-    </div>
-    <div class="feature-pill">
-      <span style="font-size:1.2rem;">🌐</span> Student Resource Hub
-    </div>
-  </div>
-</div>
+{% block title %}Campus Connect — All-in-One Student Workspace{% endblock %}
 
-<div class="grid-3 mt-8 animate-fade-up" style="animation-delay: 0.3s; padding-bottom:60px;">
-  <div class="card text-center" style="padding:40px 20px;">
-    <div class="action-icon blue mx-auto mb-4" style="margin:0 auto 20px;">🎯</div>
-    <h3>Stay Organized</h3>
-    <p class="text-muted mt-2">Manage your tasks, track deadlines, and crush your upcoming exams with our new planner and countdown features.</p>
+{% block content %}
+<!-- HERO SECTION -->
+<section class="hero-section" id="hero">
+  <div class="hero-container">
+    
+    <!-- Hero Top Badge -->
+    <div class="hero-badge animate-fade-up">
+      <span class="hero-badge-icon">🎓</span>
+      <span>The All-in-One Student Workspace</span>
+    </div>
+    
+    <!-- Main Hero Title -->
+    <h1 class="hero-title animate-fade-up" style="animation-delay: 0.1s;">
+      Your Campus.<br>
+      Your Community.<br>
+      <span class="hero-gradient-text">Your Connect.</span>
+    </h1>
+    
+    <!-- Hero Subtitle -->
+    <p class="hero-subtitle animate-fade-up" style="animation-delay: 0.2s;">
+      One smart platform for learning, collaboration, communication and student productivity. Built for the modern student.
+    </p>
+    
+    <!-- Hero Actions (Responsive buttons) -->
+    <div class="hero-actions animate-fade-up" style="animation-delay: 0.3s;">
+      <a href="{{ url_for('login') }}" class="btn btn-primary btn-hero">
+        <span>Sign In to Dashboard</span>
+        <svg class="btn-arrow-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      </a>
+      <a href="{{ url_for('register') }}" class="btn btn-outline btn-hero btn-hero-secondary">
+        <span>Create Account</span>
+      </a>
+    </div>
+
+    <!-- Quick Highlights Bar -->
+    <div class="hero-highlights animate-fade-up" style="animation-delay: 0.4s;">
+      <div class="hero-highlight-item">
+        <span class="highlight-bullet">⚡</span>
+        <span>Real-Time Collaboration</span>
+      </div>
+      <div class="hero-highlight-divider">•</div>
+      <div class="hero-highlight-item">
+        <span class="highlight-bullet">🎯</span>
+        <span>Smart Task Tracking</span>
+      </div>
+      <div class="hero-highlight-divider">•</div>
+      <div class="hero-highlight-item">
+        <span class="highlight-bullet">🔒</span>
+        <span>Private & Secure</span>
+      </div>
+      <div class="hero-highlight-divider">•</div>
+      <div class="hero-highlight-item">
+        <span class="highlight-bullet">📱</span>
+        <span>Mobile & Desktop Ready</span>
+      </div>
+    </div>
+
   </div>
-  <div class="card text-center" style="padding:40px 20px;">
-    <div class="action-icon green mx-auto mb-4" style="margin:0 auto 20px;">📚</div>
-    <h3>Focus & Study</h3>
-    <p class="text-muted mt-2">Use the built-in study timer with animated progress to keep yourself on track during intense revision sessions.</p>
+</section>
+
+<!-- APPLICATION MODULES SHOWCASE SECTION -->
+<section class="modules-section" id="features">
+  <div class="public-container">
+    
+    <!-- Section Header -->
+    <div class="section-header text-center animate-fade-up">
+      <div class="section-kicker">APPLICATION SUITE</div>
+      <h2 class="section-title">Engineered for Academic Success</h2>
+      <p class="section-description">
+        Every tool you need to organize coursework, accelerate study sessions, and connect with peers in one unified application.
+      </p>
+    </div>
+
+    <!-- Software Modules Grid -->
+    <div class="modules-grid">
+      
+      <!-- Module 1: Study Hub & Timer -->
+      <div class="module-card">
+        <div class="module-card-top">
+          <div class="module-icon-box blue">
+            <span class="module-emoji">📚</span>
+          </div>
+          <span class="module-badge">Focus & Timer</span>
+        </div>
+        <h3 class="module-title">Study Hub & Timer</h3>
+        <p class="module-summary">
+          Structured Pomodoro intervals, custom session goals, and automated revision analytics to help you master challenging subjects.
+        </p>
+        <div class="module-preview-strip">
+          <div class="preview-status-dot pulse-green"></div>
+          <span class="preview-text">Active Focus: 25:00 • Pomodoro Flow</span>
+        </div>
+        <div class="module-footer">
+          <a href="{{ url_for('login') }}" class="module-link">
+            <span>Explore Study Hub</span>
+            <span class="module-arrow">→</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Module 2: Smart Task Planner -->
+      <div class="module-card">
+        <div class="module-card-top">
+          <div class="module-icon-box purple">
+            <span class="module-emoji">📝</span>
+          </div>
+          <span class="module-badge">Productivity</span>
+        </div>
+        <h3 class="module-title">Smart Task Planner</h3>
+        <p class="module-summary">
+          Prioritize course assignments, organize daily checklists, and monitor semester deadlines with customized priority tags.
+        </p>
+        <div class="module-preview-strip">
+          <div class="preview-status-dot blue"></div>
+          <span class="preview-text">4 of 6 Course Deliverables Completed</span>
+        </div>
+        <div class="module-footer">
+          <a href="{{ url_for('login') }}" class="module-link">
+            <span>Open Task Planner</span>
+            <span class="module-arrow">→</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Module 3: Exam Countdown -->
+      <div class="module-card">
+        <div class="module-card-top">
+          <div class="module-icon-box amber">
+            <span class="module-emoji">⏰</span>
+          </div>
+          <span class="module-badge">Academic Timeline</span>
+        </div>
+        <h3 class="module-title">Exam Countdown & Reminders</h3>
+        <p class="module-summary">
+          Live countdown clocks for midterms and finals, syllabus checkpoints, and timely reminders to stay fully prepared.
+        </p>
+        <div class="module-preview-strip">
+          <div class="preview-status-dot amber"></div>
+          <span class="preview-text">Next: Mid-Term Finals in 4 Days</span>
+        </div>
+        <div class="module-footer">
+          <a href="{{ url_for('login') }}" class="module-link">
+            <span>View Exam Clocks</span>
+            <span class="module-arrow">→</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Module 4: Classmate Chat -->
+      <div class="module-card">
+        <div class="module-card-top">
+          <div class="module-icon-box cyan">
+            <span class="module-emoji">💬</span>
+          </div>
+          <span class="module-badge">Peer Network</span>
+        </div>
+        <h3 class="module-title">Classmate Chat & Sharing</h3>
+        <p class="module-summary">
+          Direct messaging with branch peers, collaborative project coordination, and instant academic discussion groups.
+        </p>
+        <div class="module-preview-strip">
+          <div class="preview-status-dot cyan"></div>
+          <span class="preview-text">Active Study Room • 12 Peers Online</span>
+        </div>
+        <div class="module-footer">
+          <a href="{{ url_for('login') }}" class="module-link">
+            <span>Connect with Peers</span>
+            <span class="module-arrow">→</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Module 5: Resource Hub -->
+      <div class="module-card">
+        <div class="module-card-top">
+          <div class="module-icon-box emerald">
+            <span class="module-emoji">🌐</span>
+          </div>
+          <span class="module-badge">Knowledge Base</span>
+        </div>
+        <h3 class="module-title">Student Resource Hub</h3>
+        <p class="module-summary">
+          Curated collection of developer roadmaps, CS textbooks, interview prep guides, and syllabus reference materials.
+        </p>
+        <div class="module-preview-strip">
+          <div class="preview-status-dot emerald"></div>
+          <span class="preview-text">50+ Verified Academic Resources</span>
+        </div>
+        <div class="module-footer">
+          <a href="{{ url_for('login') }}" class="module-link">
+            <span>Browse Resource Hub</span>
+            <span class="module-arrow">→</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Module 6: Faculty Doubts -->
+      <div class="module-card">
+        <div class="module-card-top">
+          <div class="module-icon-box rose">
+            <span class="module-emoji">❓</span>
+          </div>
+          <span class="module-badge">Faculty Q&A</span>
+        </div>
+        <h3 class="module-title">Faculty Doubt Resolution</h3>
+        <p class="module-summary">
+          Submit challenging questions directly to professors and TAs, track answer statuses, and access verified explanations.
+        </p>
+        <div class="module-preview-strip">
+          <div class="preview-status-dot rose"></div>
+          <span class="preview-text">Verified Faculty Answers & Feedback</span>
+        </div>
+        <div class="module-footer">
+          <a href="{{ url_for('login') }}" class="module-link">
+            <span>Ask Subject Doubts</span>
+            <span class="module-arrow">→</span>
+          </a>
+        </div>
+      </div>
+
+    </div>
   </div>
-  <div class="card text-center" style="padding:40px 20px;">
-    <div class="action-icon orange mx-auto mb-4" style="margin:0 auto 20px;">🤝</div>
-    <h3>Connect & Share</h3>
-    <p class="text-muted mt-2">Instantly chat with classmates, share important notes, and ask faculty doubts without leaving the app.</p>
+</section>
+
+<!-- CORE PILLARS SECTION -->
+<section class="pillars-section">
+  <div class="public-container">
+    <div class="pillars-grid">
+      <div class="pillar-card">
+        <div class="pillar-icon blue">🎯</div>
+        <h3 class="pillar-title">Stay Organized</h3>
+        <p class="pillar-description">
+          Consolidate your academic workload. Manage course assignments, track impending deadlines, and stay ahead without feeling overwhelmed.
+        </p>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-icon green">📚</div>
+        <h3 class="pillar-title">Focus & Study</h3>
+        <p class="pillar-description">
+          Harness structured revision routines. The built-in focus timer with progress tracking helps you build deep study habits every single week.
+        </p>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-icon amber">🤝</div>
+        <h3 class="pillar-title">Connect & Share</h3>
+        <p class="pillar-description">
+          Campus life is better together. Instantly message classmates, exchange lecture notes, and get faculty guidance in one trusted space.
+        </p>
+      </div>
+    </div>
   </div>
-</div>
+</section>
+
+<!-- CALL TO ACTION (CTA) SECTION -->
+<section class="cta-section">
+  <div class="public-container">
+    <div class="cta-card">
+      <div class="cta-content">
+        <span class="cta-badge">🚀 GET STARTED IN SECONDS</span>
+        <h2 class="cta-title">Upgrade Your Campus Life Today</h2>
+        <p class="cta-description">
+          Join your peers on Campus Connect. Boost your focus, stay on top of exams, and build your collaborative study network.
+        </p>
+        <div class="cta-actions">
+          <a href="{{ url_for('register') }}" class="btn btn-primary btn-cta-primary">
+            Create Free Account
+          </a>
+          <a href="{{ url_for('login') }}" class="btn btn-outline btn-cta-secondary">
+            Sign In to Dashboard
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PUBLIC FOOTER -->
+<footer class="public-footer">
+  <div class="public-container">
+    <div class="footer-top">
+      <div class="footer-brand-col">
+        <div class="brand-logo">
+          <span class="brand-icon">🎓</span>
+          <span class="brand-name">Campus Connect</span>
+        </div>
+        <p class="footer-tagline">
+          The all-in-one platform for modern campus learning, productivity, and peer collaboration.
+        </p>
+      </div>
+      <div class="footer-links-col">
+        <div class="footer-links-title">Quick Links</div>
+        <ul class="footer-links-list">
+          <li><a href="{{ url_for('index') }}">Home</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="{{ url_for('login') }}">Sign In</a></li>
+          <li><a href="{{ url_for('register') }}">Create Account</a></li>
+        </ul>
+      </div>
+      <div class="footer-links-col">
+        <div class="footer-links-title">Modules</div>
+        <ul class="footer-links-list">
+          <li><a href="{{ url_for('login') }}">Study Hub & Timer</a></li>
+          <li><a href="{{ url_for('login') }}">Smart Task Planner</a></li>
+          <li><a href="{{ url_for('login') }}">Exam Countdown</a></li>
+          <li><a href="{{ url_for('login') }}">Resource Hub</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-copy">
+        © {{ now().year if now is defined else '2026' }} Campus Connect. Built for modern students & faculty.
+      </div>
+      <div class="footer-badges">
+        <span class="footer-status-pill"><span class="status-indicator"></span> Platform Online</span>
+      </div>
+    </div>
+  </div>
+</footer>
 {% endblock %}
