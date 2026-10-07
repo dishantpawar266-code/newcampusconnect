@@ -11,17 +11,29 @@ from app import app
 
 class VercelPathFixMiddleware:
     """
-    Vercel CLI 62+ rewrites request paths to destination (/api/index.py).
-    This middleware restores the original requested path from x-matched-path
-    so Flask routes (/, /login, /dashboard, etc.) resolve properly.
+    Vercel rewrites all traffic to /api/index.
+    This middleware ensures PATH_INFO is cleanly normalized:
+    - /api/index or /api/index.py -> /
+    - /api/index/login -> /login
+    - Preserves all real routes so Flask matches correctly.
     """
     def __init__(self, wsgi_app):
         self.wsgi_app = wsgi_app
 
     def __call__(self, environ, start_response):
+        path = environ.get("PATH_INFO", "") or "/"
+        
+        # Check if original path is stored in headers
         matched = environ.get("HTTP_X_MATCHED_PATH")
-        if matched and environ.get("PATH_INFO") in ("/api/index.py", "/api/index"):
+        if matched and matched not in ("/api/index", "/api/index.py"):
             environ["PATH_INFO"] = matched
+        elif path in ("/api/index", "/api/index.py", "/api", "/api/"):
+            environ["PATH_INFO"] = "/"
+        elif path.startswith("/api/index/"):
+            environ["PATH_INFO"] = path[10:] or "/"
+        elif path.startswith("/api/index.py/"):
+            environ["PATH_INFO"] = path[13:] or "/"
+
         return self.wsgi_app(environ, start_response)
 
 # Expose WSGI application wrapped with Vercel path fix

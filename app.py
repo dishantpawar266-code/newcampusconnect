@@ -276,6 +276,8 @@ def inject_globals():
 # ===========================================================================
 
 @app.route("/")
+@app.route("/api/index")
+@app.route("/api/index.py")
 def index():
     return render_template("index.html")
 
