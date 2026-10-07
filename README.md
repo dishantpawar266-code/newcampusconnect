@@ -1,6 +1,6 @@
-# 🎓 Campus Connect 3.0
+# 🎓 Campus Connect
 
-Campus Connect 3.0 is a modern, student-centric EdTech web application designed for colleges and universities. It unifies course study resources, real-time classmate communication, academic task planning, exam countdown reminders, doubt resolution with faculty, and campus circulars into a single responsive platform.
+Campus Connect is a modern, student-centric EdTech web application designed for colleges and universities. It unifies course study resources, real-time classmate communication, academic task planning, exam countdown reminders, doubt resolution with faculty, and campus circulars into a single responsive platform.
 
 ---
 
