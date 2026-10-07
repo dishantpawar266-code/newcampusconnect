@@ -143,18 +143,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  // --- Admin code field show/hide ---
-  const adminToggle = document.getElementById('show-admin-code');
-  const adminField = document.getElementById('admin-code-field');
-  if (adminToggle && adminField) {
-    adminToggle.addEventListener('click', () => {
-      adminField.classList.toggle('hidden');
-      adminToggle.textContent = adminField.classList.contains('hidden')
-        ? 'Admin access'
-        : 'Hide admin access';
-    });
-  }
-
   // --- Quiz builder ---
   const quizBuilder = document.getElementById('quiz-builder');
   if (quizBuilder) {

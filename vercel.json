@@ -1,17 +1,15 @@
 {
-  "builds": [
+  "version": 2,
+  "rewrites": [
     {
-      "src": "app.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxDuration": 15
-      }
+      "source": "/(.*)",
+      "destination": "/api/index.py"
     }
   ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "app.py"
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 15,
+      "includeFiles": "templates/**,static/**"
     }
-  ]
+  }
 }

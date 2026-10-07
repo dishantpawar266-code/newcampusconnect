@@ -8,38 +8,27 @@ RESOURCES_DATA = [
     # College / Student Resources (Spotlight + Official)
     # ---------------------------------------------------------
     {
-        "id": "campus-credentials",
-        "name": "Campus Credentials",
+        "id": "rcpit-official",
+        "name": "RCPIT Official Website",
         "category": "College",
-        "url": "https://campuscredentials.com",
-        "icon": "🏅",
-        "badge": "Official Partner",
-        "description": "Verify student academic credentials, digitized marksheets, college certificates, and verified digital skill badges in one secure student portal.",
-        "tags": ["credentials", "verification", "certificates", "marksheets", "badges", "college", "official"],
-        "is_recommended": True,
-        "is_spotlight": True
-    },
-    {
-        "id": "digilocker",
-        "name": "DigiLocker",
-        "category": "College",
-        "url": "https://www.digilocker.gov.in/",
-        "icon": "🔐",
-        "badge": "Govt of India",
-        "description": "National digital wallet for storing and verifying government identity documents, university marksheets, passing certificates, and migration letters.",
-        "tags": ["digilocker", "government", "degrees", "marksheets", "verified documents", "college"],
+        "url": "https://www.rcpit.ac.in/",
+        "icon": "🏛️",
+        "badge": "Official Portal",
+        "description": "Official website of R. C. Patel Institute of Technology (RCPIT), Shirpur. Access college notifications, academic calendar, department updates, syllabus, exam circulars, and campus events.",
+        "tags": ["rcpit", "college", "official", "shirpur", "academics", "portal", "syllabus", "notifications"],
         "is_recommended": True
     },
     {
-        "id": "nsp-scholarships",
-        "name": "National Scholarship Portal",
+        "id": "campus-credentials",
+        "name": "Campus Credentials",
         "category": "College",
-        "url": "https://scholarships.gov.in/",
-        "icon": "📜",
-        "badge": "Govt Portal",
-        "description": "One-stop common electronic portal for applying to central, state, and UGC/AICTE merit-based scholarships and education grants.",
-        "tags": ["scholarships", "financial aid", "central schemes", "ugc", "aicte", "grants", "college"],
-        "is_recommended": False
+        "url": "https://learn.campuscredentials.com/",
+        "icon": "🏅",
+        "badge": "Official Partner",
+        "description": "Student learning and assessment portal for campus training programs, skill evaluation, tests, and verified digital credentials.",
+        "tags": ["credentials", "learning", "assessments", "training", "certificates", "badges", "college", "official"],
+        "is_recommended": True,
+        "is_spotlight": True
     },
     {
         "id": "swayam-nptel",

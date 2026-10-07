@@ -97,9 +97,9 @@
           {{ spotlight.description }}
         </p>
         <div style="display:flex; flex-wrap:wrap; gap:12px; font-size:0.8rem; color:#166534; font-weight:500;">
-          <span>✓ Digitized Marksheets</span>
-          <span>✓ Verified Degrees & Badges</span>
-          <span>✓ Instant Academic Proof</span>
+          <span>✓ Training & Skill Assessments</span>
+          <span>✓ Verified Badges & Certifications</span>
+          <span>✓ Student Learning Portal</span>
         </div>
       </div>
     </div>
@@ -107,7 +107,7 @@
       <a href="{{ spotlight.url }}" target="_blank" rel="noopener noreferrer"
          onclick="recordVisit('{{ spotlight.id }}', '{{ spotlight.name }}', '{{ spotlight.url }}', '{{ spotlight.icon }}')"
          class="btn btn-primary" style="background:#16a34a; border-color:#16a34a; padding:12px 22px; font-weight:600; border-radius:var(--radius-md); box-shadow:0 4px 14px rgba(22,163,74,0.3);">
-        Open Campus Credentials ↗
+        Open {{ spotlight.name }} ↗
       </a>
     </div>
   </div>
@@ -434,6 +434,14 @@ function recordVisit(id, name, url, icon) {
     localStorage.setItem(STORAGE_KEY_RECENT, JSON.stringify(recent));
     renderRecentTray();
   } catch (e) {}
+
+  try {
+    fetch('/api/track-resource', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id, name: name })
+    }).catch(function() {});
+  } catch (err) {}
 }
 
 function renderRecentTray() {

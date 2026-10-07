@@ -1,7 +1,7 @@
 import os
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from functools import wraps
 import io
 
@@ -12,7 +12,11 @@ from flask import (
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from models import db, User, Notice, Assignment, UploadedFile, Note, Doubt, Quiz, QuizResult, Conversation, Message, StudySession, Task, ExamReminder
+from models import (
+    db, User, Notice, Assignment, UploadedFile, Note, Doubt,
+    Quiz, QuizResult, Conversation, Message, StudySession,
+    Task, ExamReminder, LoginLog, ActivityLog, init_db_and_migrate
+)
 from resources_data import RESOURCES_DATA, CATEGORIES, get_recommended_resources, get_spotlight_resource
 
 load_dotenv()
@@ -20,22 +24,48 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 # App Initialisation
 # ---------------------------------------------------------------------------
-app = Flask(__name__)
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
+app = Flask(
+    __name__,
+    template_folder=os.path.join(BASE_DIR, 'templates'),
+    static_folder=os.path.join(BASE_DIR, 'static')
+)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-in-prod")
+
+# Secure Private Admin Credentials (accessible only server-side)
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@campusconnect.edu").strip().lower()
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "AdminSecurePass@2026").strip()
+
+is_vercel = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
 
 database_url = os.environ.get("DATABASE_URL")
 if not database_url:
-    database_url = "sqlite:///campus_connect.db"
+    if is_vercel:
+        # On Vercel, the app root filesystem is strictly read-only.
+        # Use /tmp so serverless functions won't crash if DATABASE_URL is not yet set.
+        database_url = "sqlite:////tmp/campus_connect.db"
+    else:
+        instance_dir = os.path.join(BASE_DIR, 'instance')
+        os.makedirs(instance_dir, exist_ok=True)
+        database_url = f"sqlite:///{os.path.join(instance_dir, 'campus_connect.db')}"
 elif database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Serverless pool optimization for PostgreSQL (prevents idle timeouts / dropped connections)
+if database_url.startswith("postgresql"):
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
+    }
+
 db.init_app(app)
 
-with app.app_context():
-    db.create_all()
+# Safely initialize database & ensure table schema backward-compatibility
+init_db_and_migrate(app)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -61,6 +91,69 @@ def allowed_file(filename):
 
 def utcnow_iso():
     return datetime.now(timezone.utc).isoformat()
+
+def format_time_ago(dt):
+    if not dt:
+        return "recently"
+    now = datetime.now(timezone.utc)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    diff = now - dt
+    seconds = int(diff.total_seconds())
+    if seconds < 60:
+        return f"{max(1, seconds)}s ago"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"{minutes}m ago"
+    hours = minutes // 60
+    if hours < 24:
+        return f"{hours}h ago"
+    days = hours // 24
+    if days < 30:
+        return f"{days}d ago"
+    return dt.strftime("%b %d, %Y")
+
+def log_login(user_id=None, user_name=None, email="", role="unknown", status="success"):
+    try:
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+        if ip and "," in ip:
+            ip = ip.split(",")[0].strip()
+        ua = request.headers.get("User-Agent", "")[:250]
+        entry = LoginLog(
+            user_id=user_id,
+            user_name=user_name,
+            email=email,
+            role=role,
+            status=status,
+            ip_address=ip or "127.0.0.1",
+            user_agent=ua
+        )
+        db.session.add(entry)
+        db.session.commit()
+    except Exception as e:
+        app.logger.warning(f"Error logging login event: {e}")
+        db.session.rollback()
+
+def log_activity(user_id=None, user_name=None, user_role=None, action="", category="General", details=""):
+    try:
+        if not user_name and user_id and user_id != "__admin__":
+            u = User.query.get(user_id)
+            if u:
+                user_name = u.name
+                user_role = u.role
+        entry = ActivityLog(
+            user_id=user_id if user_id != "__admin__" else None,
+            user_name=user_name or "System",
+            user_role=user_role or "unknown",
+            action=action,
+            category=category,
+            details=details
+        )
+        db.session.add(entry)
+        db.session.commit()
+    except Exception as e:
+        app.logger.warning(f"Error logging activity event: {e}")
+        db.session.rollback()
 
 def login_required(f):
     @wraps(f)
@@ -88,7 +181,7 @@ def get_current_user():
     if "uid" not in session:
         return None
     if session["uid"] == "__admin__":
-        return {"id": "__admin__", "name": "Administrator", "role": "admin"}
+        return {"id": "__admin__", "name": "Administrator", "role": "admin", "email": ADMIN_EMAIL}
     
     user = User.query.get(session["uid"])
     if user:
@@ -190,6 +283,9 @@ def _handle_register(form):
         db.session.add(user)
         db.session.commit()
 
+        # Log registration event
+        log_activity(user_id=user.id, user_name=user.name, user_role=role, action="user_registered", category="Auth", details=f"New {role.capitalize()} registered: {name} ({email})")
+
         session["uid"] = user.id
         session["role"] = role
         session["name"] = name
@@ -206,6 +302,8 @@ def _handle_register(form):
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if "uid" in session:
+        if session.get("role") == "admin":
+            return redirect(url_for("admin_dashboard"))
         return redirect(url_for("dashboard"))
     if request.method == "POST":
         return _handle_login(request.form)
@@ -214,43 +312,48 @@ def login():
 def _handle_login(form):
     email = form.get("email", "").strip().lower()
     password = form.get("password", "").strip()
-    admin_code = form.get("admin_code", "").strip()
-
-    if admin_code:
-        return _handle_admin_login(admin_code)
 
     if not email or not password:
         flash("Email and password are required.", "danger")
         return render_template("auth/login.html")
 
+    # Hidden Admin Authentication via Student Login Entry Point
+    if ADMIN_EMAIL and ADMIN_PASSWORD and email == ADMIN_EMAIL and password == ADMIN_PASSWORD:
+        session.clear()
+        session["uid"] = "__admin__"
+        session["role"] = "admin"
+        session["name"] = "Administrator"
+        log_login(user_id=None, user_name="Administrator", email=email, role="admin", status="success")
+        log_activity(user_id=None, user_name="Administrator", user_role="admin", action="admin_login", category="Auth", details="Administrator authenticated to private Admin Console")
+        return redirect(url_for("admin_dashboard"))
+
     user = User.query.filter_by(email=email).first()
     if not user or not check_password_hash(user.password_hash, password):
+        log_login(user_id=user.id if user else None, user_name=user.name if user else None, email=email, role=user.role if user else "unknown", status="failed")
         flash("Invalid email or password.", "danger")
         return render_template("auth/login.html")
     
     if not user.is_active:
+        log_login(user_id=user.id, user_name=user.name, email=email, role=user.role, status="failed")
         flash("Your account has been disabled. Contact admin.", "danger")
         return render_template("auth/login.html")
+
+    # Update activity stats for user
+    try:
+        user.last_login_at = datetime.now(timezone.utc)
+        user.login_count = (user.login_count or 0) + 1
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
     session["uid"] = user.id
     session["role"] = user.role
     session["name"] = user.name
+    log_login(user_id=user.id, user_name=user.name, email=user.email, role=user.role, status="success")
+    log_activity(user_id=user.id, user_name=user.name, user_role=user.role, action="user_login", category="Auth", details=f"{user.name} signed in successfully")
+
     flash(f"Welcome back, {user.name}!", "success")
     return redirect(url_for("dashboard"))
-
-def _handle_admin_login(code):
-    expected = os.environ.get("ADMIN_SECRET_CODE", "")
-    if not expected:
-        flash("Admin access not configured.", "danger")
-        return render_template("auth/login.html")
-    if code == expected:
-        session["uid"] = "__admin__"
-        session["role"] = "admin"
-        session["name"] = "Administrator"
-        return redirect(url_for("admin_dashboard"))
-    else:
-        flash("Invalid access code.", "danger")
-    return render_template("auth/login.html")
 
 @app.route("/logout")
 def logout():
@@ -267,6 +370,15 @@ def serve_file(file_id):
     file_record = UploadedFile.query.get(file_id)
     if not file_record:
         abort(404)
+    if "uid" in session:
+        log_activity(
+            user_id=session.get("uid"),
+            user_name=session.get("name"),
+            user_role=session.get("role"),
+            action="file_accessed",
+            category="Files",
+            details=f"Accessed shared file: {file_record.filename}"
+        )
     return send_file(
         io.BytesIO(file_record.data),
         mimetype=file_record.content_type,
@@ -344,6 +456,7 @@ def create_task():
     )
     db.session.add(task)
     db.session.commit()
+    log_activity(session["uid"], session.get("name"), session.get("role"), "planner_task_created", "Planner", f"Created task: '{title}'")
     return jsonify({"ok": True})
 
 @app.route("/api/tasks/<task_id>/toggle", methods=["POST"])
@@ -354,6 +467,8 @@ def toggle_task(task_id):
         task.is_completed = not task.is_completed
         task.updated_at = datetime.now(timezone.utc)
         db.session.commit()
+        status_txt = "completed" if task.is_completed else "reopened"
+        log_activity(session["uid"], session.get("name"), session.get("role"), "planner_task_toggled", "Planner", f"Task '{task.title}' marked as {status_txt}")
         return jsonify({"ok": True, "is_completed": task.is_completed})
     return jsonify({"ok": False})
 
@@ -397,6 +512,7 @@ def create_exam():
     )
     db.session.add(exam)
     db.session.commit()
+    log_activity(session["uid"], session.get("name"), session.get("role"), "reminder_created", "Reminders", f"Added exam reminder for '{subject}' ({exam_date})")
     return jsonify({"ok": True})
 
 @app.route("/api/exams/<exam_id>", methods=["DELETE"])
@@ -483,6 +599,7 @@ def create_notice():
         )
         db.session.add(notice)
         db.session.commit()
+        log_activity(session["uid"], session.get("name"), session.get("role"), "notice_created", "Notices", f"Published notice: '{title}' ({notice.category})")
         flash("Notice published successfully.", "success")
         return redirect(url_for("notices"))
     return render_template("notices_form.html", departments=DEPARTMENTS)
@@ -557,6 +674,7 @@ def create_assignment():
         )
         db.session.add(assignment)
         db.session.commit()
+        log_activity(session["uid"], session.get("name"), session.get("role"), "assignment_created", "Assignments", f"Created assignment: '{title}' ({assignment.subject})")
         flash("Assignment created.", "success")
         return redirect(url_for("assignments"))
     return render_template("assignments_form.html", departments=DEPARTMENTS)
@@ -665,7 +783,7 @@ def upload_note():
             )
             db.session.add(note)
             db.session.commit()
-            
+            log_activity(session["uid"], session.get("name"), session.get("role"), "notes_uploaded", "Notes", f"Uploaded note: '{title}' ({note.subject})")
             flash("Note uploaded successfully.", "success")
             return redirect(url_for("notes"))
         except Exception as e:
@@ -723,6 +841,7 @@ def ask_doubt():
         )
         db.session.add(doubt)
         db.session.commit()
+        log_activity(session["uid"], session.get("name"), session.get("role"), "doubt_asked", "Doubts", f"Asked doubt to {doubt.target_name}")
         flash("Question submitted successfully.", "success")
         return redirect(url_for("doubts"))
         
@@ -742,6 +861,7 @@ def answer_doubt(doubt_id):
         doubt.answered = True
         doubt.answered_at = datetime.now(timezone.utc)
         db.session.commit()
+        log_activity(session["uid"], session.get("name"), session.get("role"), "doubt_answered", "Doubts", f"Answered doubt for {doubt.asker_name}")
         flash("Answer submitted.", "success")
     return redirect(url_for("doubts"))
 
@@ -793,6 +913,7 @@ def create_quiz():
         )
         db.session.add(quiz)
         db.session.commit()
+        log_activity(session["uid"], session.get("name"), session.get("role"), "quiz_created", "Quizzes", f"Created quiz: '{title}' ({quiz.department})")
         flash("Quiz created.", "success")
         return redirect(url_for("quizzes"))
         
@@ -840,6 +961,7 @@ def attempt_quiz(quiz_id):
         )
         db.session.add(result)
         db.session.commit()
+        log_activity(session["uid"], session.get("name"), session.get("role"), "quiz_submitted", "Quizzes", f"Completed quiz: '{quiz_obj.title}' (Score: {score}/{total})")
         flash(f"Quiz submitted! Your score: {score}/{total}", "success")
         return redirect(url_for("quiz_result", quiz_id=quiz_id))
         
@@ -1002,6 +1124,7 @@ def chat(peer_id):
             conv.last_message = msg.content or f"[{msg.file_type.upper()} file]"
             conv.last_message_at = datetime.now(timezone.utc)
             db.session.commit()
+            log_activity(session["uid"], session.get("name"), session.get("role"), "message_sent", "Chat", "Sent a peer chat message" if not msg.file_name else f"Shared file in chat: {msg.file_name}")
             
         return redirect(url_for("chat", peer_id=peer_id))
         
@@ -1063,6 +1186,7 @@ def save_study_session():
         )
         db.session.add(session_obj)
     db.session.commit()
+    log_activity(session["uid"], session.get("name"), session.get("role"), "study_timer_saved", "Study Hub", f"Completed {duration_seconds // 60}m study timer session")
     return jsonify({"ok": True})
 
 @app.route("/api/study/sessions")
@@ -1080,6 +1204,7 @@ def get_study_sessions():
 @app.route("/resource-hub")
 @login_required
 def resources():
+    log_activity(session.get("uid"), session.get("name"), session.get("role"), "resource_hub_viewed", "Resources Hub", "Explored Student Resource Hub")
     recommended = get_recommended_resources()
     spotlight = get_spotlight_resource()
     return render_template(
@@ -1090,6 +1215,27 @@ def resources():
         spotlight=spotlight
     )
 
+@app.route("/api/track-resource", methods=["POST"])
+def track_resource():
+    try:
+        data = request.get_json(silent=True) or request.form or {}
+        r_id = data.get("id", "")
+        r_name = data.get("name", "External Resource")
+        uid = session.get("uid")
+        uname = session.get("name", "Student")
+        urole = session.get("role", "student")
+        log_activity(
+            user_id=uid if uid != "__admin__" else None,
+            user_name=uname,
+            user_role=urole,
+            action="resource_clicked",
+            category="Resources Hub",
+            details=f"Opened resource: {r_name} ({r_id})"
+        )
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
 # ===========================================================================
 # ADMIN DASHBOARD
 # ===========================================================================
@@ -1097,39 +1243,310 @@ def resources():
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if session.get("role") != "admin":
+        if session.get("role") != "admin" or session.get("uid") != "__admin__":
+            if "uid" not in session:
+                return redirect(url_for("login"))
             abort(403)
         return f(*args, **kwargs)
     return decorated
 
+@app.route("/admin/logout")
+def admin_logout():
+    if session.get("role") == "admin":
+        log_activity(user_id=None, user_name="Administrator", user_role="admin", action="admin_logout", category="Auth", details="Administrator session terminated")
+    session.clear()
+    flash("Session signed out successfully.", "info")
+    return redirect(url_for("login"))
+
 @app.route("/admin")
 @admin_required
 def admin_dashboard():
-    stats = {
-        "total_students": 0, "total_faculty": 0, "total_clubs": 0,
-        "total_notes": 0, "total_assignments": 0, "total_notices": 0,
-        "students": [], "faculty": [], "clubs": [],
+    now = datetime.now(timezone.utc)
+    seven_days_ago = now - timedelta(days=7)
+    thirty_days_ago = now - timedelta(days=30)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # 1. User counts
+    total_users = User.query.count()
+    students_count = User.query.filter_by(role="student").count()
+    faculty_count = User.query.filter_by(role="faculty").count()
+    clubs_count = User.query.filter_by(role="club").count()
+    active_users_count = User.query.filter_by(is_active=True).count()
+    disabled_users_count = User.query.filter_by(is_active=False).count()
+
+    # 2. Registrations
+    new_reg_7d = User.query.filter(User.created_at >= seven_days_ago).count()
+    new_reg_30d = User.query.filter(User.created_at >= thirty_days_ago).count()
+
+    # 3. Content totals
+    total_notes = Note.query.count()
+    total_assignments = Assignment.query.count()
+    total_notices = Notice.query.count()
+    total_quizzes = Quiz.query.count()
+    total_quiz_submissions = QuizResult.query.count()
+    total_messages = Message.query.count()
+    total_files = UploadedFile.query.count()
+    total_doubts = Doubt.query.count()
+    total_study_sessions = StudySession.query.count()
+    total_tasks = Task.query.count()
+    total_reminders = ExamReminder.query.count()
+
+    study_seconds = db.session.query(db.func.sum(StudySession.duration_seconds)).scalar() or 0
+    total_study_hours = round(study_seconds / 3600.0, 1)
+
+    # 4. Login activity
+    total_logins = LoginLog.query.count()
+    successful_logins = LoginLog.query.filter_by(status="success").count()
+    failed_logins = LoginLog.query.filter_by(status="failed").count()
+    success_rate = round((successful_logins / total_logins * 100), 1) if total_logins > 0 else 100.0
+    logins_today = LoginLog.query.filter(LoginLog.timestamp >= today_start).count()
+
+    active_users_7d = db.session.query(db.func.count(db.func.distinct(LoginLog.user_id))).filter(
+        LoginLog.timestamp >= seven_days_ago,
+        LoginLog.user_id.isnot(None),
+        LoginLog.status == "success"
+    ).scalar() or 0
+
+    active_users_30d = db.session.query(db.func.count(db.func.distinct(LoginLog.user_id))).filter(
+        LoginLog.timestamp >= thirty_days_ago,
+        LoginLog.user_id.isnot(None),
+        LoginLog.status == "success"
+    ).scalar() or 0
+    if active_users_30d == 0 and active_users_count > 0:
+        active_users_30d = active_users_count
+
+    # 5. Most active users (by login_count and activity)
+    most_active = User.query.order_by(User.login_count.desc(), User.created_at.desc()).limit(6).all()
+    most_active_list = []
+    for u in most_active:
+        dept_str = u.department or ""
+        if u.role == "faculty" and u.departments:
+            try:
+                d_list = json.loads(u.departments)
+                dept_str = ", ".join(d_list) if d_list else "Faculty"
+            except Exception:
+                dept_str = "Faculty"
+        elif u.role == "club":
+            dept_str = u.club_category or "Club"
+
+        most_active_list.append({
+            "id": u.id,
+            "name": u.name,
+            "email": u.email,
+            "role": u.role,
+            "department": dept_str,
+            "login_count": u.login_count or 0,
+            "last_login": u.last_login_at.strftime("%b %d, %Y %H:%M") if u.last_login_at else "Never",
+            "is_active": u.is_active
+        })
+
+    # 6. Feature Usage Ranking (Real database counts)
+    feature_counts_map = {
+        "Notes Hub": total_notes,
+        "Assignments": total_assignments,
+        "Campus Notices": total_notices,
+        "Interactive Quizzes": total_quizzes + total_quiz_submissions,
+        "Study Hub & Timer": total_study_sessions,
+        "Academic Planner": total_tasks,
+        "Exam Reminders": total_reminders,
+        "Peer Chat": total_messages,
+        "File Sharing": total_files,
+        "Doubts & Mentorship": total_doubts,
     }
-    try:
-        s_docs = User.query.filter_by(role="student").all()
-        stats["students"] = [{"id": d.id, "name": d.name, "email": d.email, "department": d.department, "roll_number": d.roll_number, "is_active": d.is_active} for d in s_docs]
-        stats["total_students"] = len(stats["students"])
+    # Add activity log category counts
+    act_counts = db.session.query(ActivityLog.category, db.func.count(ActivityLog.id)).group_by(ActivityLog.category).all()
+    for cat, cnt in act_counts:
+        if cat in ("Resources Hub", "Community", "Auth"):
+            feature_counts_map[cat] = cnt
+        elif cat in feature_counts_map:
+            feature_counts_map[cat] = max(feature_counts_map[cat], cnt)
+
+    total_feature_events = sum(feature_counts_map.values()) or 1
+    features_ranked = []
+    feature_icons = {
+        "Notes Hub": "📚", "Assignments": "📋", "Campus Notices": "📢", "Interactive Quizzes": "⚡",
+        "Study Hub & Timer": "⏱️", "Academic Planner": "📅", "Exam Reminders": "⏰", "Peer Chat": "💬",
+        "File Sharing": "📁", "Doubts & Mentorship": "❓", "Resources Hub": "🌐", "Community": "👥", "Auth": "🔐"
+    }
+    for name, cnt in sorted(feature_counts_map.items(), key=lambda x: x[1], reverse=True):
+        features_ranked.append({
+            "name": name,
+            "icon": feature_icons.get(name, "✨"),
+            "count": cnt,
+            "percentage": round((cnt / total_feature_events) * 100, 1)
+        })
+
+    most_used_feature = features_ranked[0] if features_ranked else {"name": "None", "count": 0, "percentage": 0, "icon": "⚡"}
+
+    # 7. Complete Users Directory
+    users_raw = User.query.order_by(User.created_at.desc()).all()
+    user_list = []
+    dept_counts = {}
+    for u in users_raw:
+        dept = u.department or ""
+        if u.role == "faculty" and u.departments:
+            try:
+                depts = json.loads(u.departments)
+                dept = ", ".join(depts) if depts else "Faculty"
+            except Exception:
+                dept = "Faculty"
+        elif u.role == "club":
+            dept = u.club_category or "Club"
         
-        f_docs = User.query.filter_by(role="faculty").all()
-        stats["faculty"] = [{"id": d.id, "name": d.name, "email": d.email, "is_active": d.is_active} for d in f_docs]
-        stats["total_faculty"] = len(stats["faculty"])
+        main_dept = u.department or "General"
+        dept_counts[main_dept] = dept_counts.get(main_dept, 0) + 1
+
+        user_list.append({
+            "id": u.id,
+            "name": u.name,
+            "email": u.email,
+            "role": u.role,
+            "department": dept,
+            "roll_number": u.roll_number or "—",
+            "year": u.year or "—",
+            "designation": u.designation or "—",
+            "club_name": u.club_name or "—",
+            "club_category": u.club_category or "—",
+            "created_at": u.created_at.strftime("%Y-%m-%d %H:%M") if u.created_at else "—",
+            "last_login": u.last_login_at.strftime("%Y-%m-%d %H:%M") if u.last_login_at else "Never",
+            "login_count": u.login_count or 0,
+            "is_active": u.is_active,
+            "bio": u.bio or "",
+            "avatar_url": u.avatar_url or ""
+        })
+
+    # 8. Recent activity logs (up to 50)
+    recent_activities_raw = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).limit(50).all()
+    recent_activities = []
+    for a in recent_activities_raw:
+        recent_activities.append({
+            "id": a.id,
+            "user_name": a.user_name,
+            "user_role": a.user_role,
+            "action": a.action,
+            "category": a.category,
+            "details": a.details,
+            "timestamp": a.timestamp.strftime("%Y-%m-%d %H:%M:%S") if a.timestamp else "",
+            "time_ago": format_time_ago(a.timestamp)
+        })
+
+    # If activity log is fresh/empty, build chronological timeline from existing real database records
+    if not recent_activities and users_raw:
+        for u in users_raw[:10]:
+            recent_activities.append({
+                "id": u.id,
+                "user_name": u.name,
+                "user_role": u.role,
+                "action": "user_registered",
+                "category": "Auth",
+                "details": f"Registered as {u.role.capitalize()}",
+                "timestamp": u.created_at.strftime("%Y-%m-%d %H:%M:%S") if u.created_at else "",
+                "time_ago": format_time_ago(u.created_at)
+            })
+
+    # 9. Recent login audit logs (up to 50)
+    login_logs_raw = LoginLog.query.order_by(LoginLog.timestamp.desc()).limit(50).all()
+    login_logs = []
+    for l in login_logs_raw:
+        login_logs.append({
+            "id": l.id,
+            "email": l.email,
+            "user_name": l.user_name or "Unknown",
+            "role": l.role or "unknown",
+            "status": l.status,
+            "ip": l.ip_address or "—",
+            "ua": l.user_agent or "—",
+            "timestamp": l.timestamp.strftime("%Y-%m-%d %H:%M:%S") if l.timestamp else "",
+            "time_ago": format_time_ago(l.timestamp)
+        })
+
+    # 10. Chart Data
+    role_chart = {
+        "labels": ["Students", "Faculty", "Clubs"],
+        "data": [students_count, faculty_count, clubs_count]
+    }
+    
+    sorted_depts = sorted(dept_counts.items(), key=lambda x: x[1], reverse=True)[:6]
+    dept_chart = {
+        "labels": [d[0][:24] + ("..." if len(d[0]) > 24 else "") for d in sorted_depts],
+        "data": [d[1] for d in sorted_depts]
+    }
+
+    days_labels = []
+    activity_trend_data = []
+    login_success_data = []
+    login_failed_data = []
+    registrations_trend_data = []
+    for i in range(6, -1, -1):
+        day_date = (now - timedelta(days=i)).date()
+        days_labels.append(day_date.strftime("%b %d"))
         
-        c_docs = User.query.filter_by(role="club").all()
-        stats["clubs"] = [{"id": d.id, "name": d.name, "email": d.email, "is_active": d.is_active} for d in c_docs]
-        stats["total_clubs"] = len(stats["clubs"])
+        d_start = datetime(day_date.year, day_date.month, day_date.day, 0, 0, 0, tzinfo=timezone.utc)
+        d_end = datetime(day_date.year, day_date.month, day_date.day, 23, 59, 59, tzinfo=timezone.utc)
         
-        stats["total_notes"] = Note.query.count()
-        stats["total_assignments"] = Assignment.query.count()
-        stats["total_notices"] = Notice.query.count()
-    except Exception as e:
-        app.logger.error(f"Admin stats error: {e}")
+        acts_count = ActivityLog.query.filter(ActivityLog.timestamp >= d_start, ActivityLog.timestamp <= d_end).count()
+        activity_trend_data.append(acts_count)
         
-    return render_template("admin/dashboard.html", stats=stats)
+        succ_count = LoginLog.query.filter(LoginLog.timestamp >= d_start, LoginLog.timestamp <= d_end, LoginLog.status == "success").count()
+        fail_count = LoginLog.query.filter(LoginLog.timestamp >= d_start, LoginLog.timestamp <= d_end, LoginLog.status == "failed").count()
+        login_success_data.append(succ_count)
+        login_failed_data.append(fail_count)
+
+        reg_count = User.query.filter(User.created_at >= d_start, User.created_at <= d_end).count()
+        registrations_trend_data.append(reg_count)
+
+    feature_chart = {
+        "labels": [f["name"] for f in features_ranked[:8]],
+        "data": [f["count"] for f in features_ranked[:8]]
+    }
+
+    stats = {
+        "total_users": total_users,
+        "students_count": students_count,
+        "faculty_count": faculty_count,
+        "clubs_count": clubs_count,
+        "active_users_count": active_users_count,
+        "disabled_users_count": disabled_users_count,
+        "new_reg_7d": new_reg_7d,
+        "new_reg_30d": new_reg_30d,
+        "total_notes": total_notes,
+        "total_assignments": total_assignments,
+        "total_notices": total_notices,
+        "total_quizzes": total_quizzes,
+        "total_quiz_submissions": total_quiz_submissions,
+        "total_messages": total_messages,
+        "total_files": total_files,
+        "total_doubts": total_doubts,
+        "total_study_sessions": total_study_sessions,
+        "total_study_hours": total_study_hours,
+        "total_tasks": total_tasks,
+        "total_reminders": total_reminders,
+        "total_logins": total_logins,
+        "successful_logins": successful_logins,
+        "failed_logins": failed_logins,
+        "success_rate": success_rate,
+        "logins_today": logins_today,
+        "active_users_7d": active_users_7d,
+        "active_users_30d": active_users_30d,
+        "most_used_feature": most_used_feature,
+        "features_ranked": features_ranked,
+        "most_active_users": most_active_list,
+        "users": user_list,
+        "recent_activities": recent_activities,
+        "login_logs": login_logs,
+        "charts": {
+            "roles": role_chart,
+            "depts": dept_chart,
+            "features": feature_chart,
+            "days_labels": days_labels,
+            "activity_trend": activity_trend_data,
+            "login_success": login_success_data,
+            "login_failed": login_failed_data,
+            "registrations_trend": registrations_trend_data
+        }
+    }
+
+    return render_template("admin/dashboard.html", stats=stats, departments=DEPARTMENTS)
 
 @app.route("/admin/user/<uid>/toggle", methods=["POST"])
 @admin_required
@@ -1138,7 +1555,15 @@ def admin_toggle_user(uid):
     if user:
         user.is_active = not user.is_active
         db.session.commit()
-        flash(f"User {'activated' if user.is_active else 'deactivated'}.", "success")
+        log_activity(
+            user_id=None,
+            user_name="Administrator",
+            user_role="admin",
+            action="user_status_toggled",
+            category="User Management",
+            details=f"Account for {user.name} ({user.email}) changed to {'Active' if user.is_active else 'Disabled'}"
+        )
+        flash(f"Account for {user.name} is now {'Activated' if user.is_active else 'Disabled'}.", "success")
     return redirect(url_for("admin_dashboard"))
 
 @app.route("/admin/user/<uid>/delete", methods=["POST"])
@@ -1146,10 +1571,75 @@ def admin_toggle_user(uid):
 def admin_delete_user(uid):
     user = User.query.get(uid)
     if user:
+        name = user.name
+        role = user.role
+        email = user.email
         db.session.delete(user)
         db.session.commit()
-        flash("User deleted.", "success")
+        log_activity(
+            user_id=None,
+            user_name="Administrator",
+            user_role="admin",
+            action="user_deleted",
+            category="User Management",
+            details=f"Permanently deleted {role} account: {name} ({email})"
+        )
+        flash(f"Account for {name} has been permanently deleted.", "success")
     return redirect(url_for("admin_dashboard"))
+
+@app.route("/admin/api/user/<uid>")
+@admin_required
+def admin_api_user_details(uid):
+    user = User.query.get(uid)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    activities = ActivityLog.query.filter_by(user_id=uid).order_by(ActivityLog.timestamp.desc()).limit(15).all()
+    user_acts = [{
+        "action": a.action,
+        "category": a.category,
+        "details": a.details,
+        "timestamp": a.timestamp.strftime("%Y-%m-%d %H:%M:%S") if a.timestamp else "",
+        "time_ago": format_time_ago(a.timestamp)
+    } for a in activities]
+
+    logins = LoginLog.query.filter_by(user_id=uid).order_by(LoginLog.timestamp.desc()).limit(10).all()
+    user_logins = [{
+        "status": l.status,
+        "ip": l.ip_address,
+        "timestamp": l.timestamp.strftime("%Y-%m-%d %H:%M:%S") if l.timestamp else "",
+        "time_ago": format_time_ago(l.timestamp)
+    } for l in logins]
+
+    dept = user.department or ""
+    if user.role == "faculty" and user.departments:
+        try:
+            depts = json.loads(user.departments)
+            dept = ", ".join(depts) if depts else "Faculty"
+        except Exception:
+            dept = "Faculty"
+    elif user.role == "club":
+        dept = user.club_category or "Club"
+
+    return jsonify({
+        "id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "role": user.role,
+        "department": dept,
+        "roll_number": user.roll_number or "—",
+        "year": user.year or "—",
+        "designation": user.designation or "—",
+        "club_name": user.club_name or "—",
+        "club_category": user.club_category or "—",
+        "bio": user.bio or "",
+        "is_active": user.is_active,
+        "created_at": user.created_at.strftime("%b %d, %Y %H:%M") if user.created_at else "—",
+        "last_login": user.last_login_at.strftime("%b %d, %Y %H:%M") if user.last_login_at else "Never",
+        "login_count": user.login_count or 0,
+        "activities": user_acts,
+        "logins": user_logins
+    })
 
 # ===========================================================================
 # API - Real-time updates support

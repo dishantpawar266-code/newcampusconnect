@@ -93,28 +93,10 @@
           </button>
         </div>
 
-        <!-- Admin Access Code (Developer Only, Hidden) -->
-        <div id="admin-code-field" class="form-group" style="display:none; margin-bottom:18px;">
-          <label class="form-label" for="admin_code">Master Access Code</label>
-          <div class="input-group">
-            <span class="input-icon-left">🔑</span>
-            <input type="password" id="admin_code" name="admin_code" class="form-control"
-                   placeholder="Enter master admin key" autocomplete="off" />
-          </div>
-          <div class="form-hint">Authorized administrators only.</div>
-        </div>
-
         <!-- Submit Button -->
         <button type="submit" class="btn-submit" id="btn-login-submit">
           <span class="btn-label">Sign In to Dashboard →</span>
         </button>
-
-        <!-- Admin toggle link -->
-        <div style="text-align:center; margin-top:14px;">
-          <button type="button" id="show-admin-code" class="admin-toggle-btn">
-            <span>🛡️</span> Admin Portal Access
-          </button>
-        </div>
       </form>
 
       <!-- Auth Footer -->
@@ -212,19 +194,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Admin access toggle
-  const adminToggle = document.getElementById('show-admin-code');
-  const adminField = document.getElementById('admin-code-field');
-  if (adminToggle && adminField) {
-    adminToggle.addEventListener('click', function () {
-      const isHidden = adminField.style.display === 'none';
-      adminField.style.display = isHidden ? 'block' : 'none';
-      if (isHidden) {
-        const adminInput = document.getElementById('admin_code');
-        if (adminInput) adminInput.focus();
-      }
-    });
-  }
 
   // Login form submission animation
   const loginForm = document.getElementById('login-form');

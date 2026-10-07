@@ -37,6 +37,10 @@ class User(db.Model):
     description = db.Column(db.Text)
     avatar_url = db.Column(db.String(255))
 
+    # Activity & login tracking
+    last_login_at = db.Column(db.DateTime(timezone=True))
+    login_count = db.Column(db.Integer, default=0)
+
 class Notice(db.Model):
     __tablename__ = 'notices'
     id = db.Column(db.String(36), primary_key=True, default=lambda: uuid.uuid4().hex)
@@ -179,4 +183,50 @@ class ExamReminder(db.Model):
     exam_time = db.Column(db.String(50)) # HH:MM
     description = db.Column(db.Text)
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
+
+class LoginLog(db.Model):
+    __tablename__ = 'login_logs'
+    id = db.Column(db.String(36), primary_key=True, default=lambda: uuid.uuid4().hex)
+    user_id = db.Column(db.String(36), nullable=True) # User ID if matched, else None
+    email = db.Column(db.String(120), nullable=False)
+    user_name = db.Column(db.String(100))
+    role = db.Column(db.String(20)) # 'student', 'faculty', 'club', 'admin', 'unknown'
+    status = db.Column(db.String(20), nullable=False) # 'success', 'failed'
+    ip_address = db.Column(db.String(50))
+    user_agent = db.Column(db.String(255))
+    timestamp = db.Column(db.DateTime(timezone=True), default=utcnow)
+
+class ActivityLog(db.Model):
+    __tablename__ = 'activity_logs'
+    id = db.Column(db.String(36), primary_key=True, default=lambda: uuid.uuid4().hex)
+    user_id = db.Column(db.String(36), nullable=True)
+    user_name = db.Column(db.String(100))
+    user_role = db.Column(db.String(20))
+    action = db.Column(db.String(100), nullable=False) # e.g. 'notes_uploaded', 'assignment_created', etc.
+    category = db.Column(db.String(50), nullable=False) # 'Notes', 'Assignments', 'Auth', 'Planner', etc.
+    details = db.Column(db.Text)
+    timestamp = db.Column(db.DateTime(timezone=True), default=utcnow)
+
+def init_db_and_migrate(app):
+    """
+    Safely creates all database tables and ensures schema backward-compatibility
+    without dropping or corrupting any existing data.
+    """
+    with app.app_context():
+        try:
+            db.create_all()
+            from sqlalchemy import inspect, text
+            inspector = inspect(db.engine)
+            if 'users' in inspector.get_table_names():
+                existing_cols = [c['name'] for c in inspector.get_columns('users')]
+                with db.engine.connect() as conn:
+                    if 'last_login_at' not in existing_cols:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN last_login_at TIMESTAMP"))
+                        conn.commit()
+                    if 'login_count' not in existing_cols:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN login_count INTEGER DEFAULT 0"))
+                        conn.commit()
+        except Exception as e:
+            app.logger.warning(f"Database migration check warning: {e}")
+
 

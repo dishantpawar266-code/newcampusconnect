@@ -940,25 +940,6 @@ button, input, select, textarea { font-family: inherit; }
   height: 16px;
 }
 
-/* Admin Access Toggle */
-.admin-toggle-btn {
-  background: none;
-  border: none;
-  color: var(--gray-400);
-  font-size: 0.78rem;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  transition: var(--transition);
-}
-.admin-toggle-btn:hover {
-  color: var(--gray-700);
-  background: var(--gray-100);
-}
-
 /* Success Animation Overlay */
 .auth-success-overlay {
   position: absolute;
