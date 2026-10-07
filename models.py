@@ -228,5 +228,10 @@ def init_db_and_migrate(app):
                         conn.commit()
         except Exception as e:
             app.logger.warning(f"Database migration check warning: {e}")
+        finally:
+            try:
+                db.session.remove()
+            except Exception:
+                pass
 
 

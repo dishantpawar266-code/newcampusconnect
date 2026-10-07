@@ -39,7 +39,34 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "AdminSecurePass@2026").strip(
 
 is_vercel = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
 
-database_url = os.environ.get("DATABASE_URL")
+# Support all common cloud Postgres environment variable keys from Vercel & Neon
+database_url = (
+    os.environ.get("DATABASE_URL") or
+    os.environ.get("POSTGRES_URL") or
+    os.environ.get("POSTGRES_PRISMA_URL") or
+    os.environ.get("NEON_DATABASE_URL")
+)
+
+if database_url:
+    database_url = database_url.strip().strip("'\"")
+    # In SQLAlchemy 2.0+, 'postgresql://' defaults to psycopg (v3).
+    # Since psycopg2-binary is installed, explicitly route to 'postgresql+psycopg2://'
+    if database_url.startswith("postgres://"):
+        database_url = "postgresql+psycopg2://" + database_url[11:]
+    elif database_url.startswith("postgresql://"):
+        database_url = "postgresql+psycopg2://" + database_url[13:]
+    # Remove channel_binding parameter if present (not supported by psycopg2-binary)
+    import re
+    database_url = re.sub(
+        r'([?&])channel_binding=[^&]*(&)?',
+        lambda m: '&' if m.group(1) == '&' and m.group(2) else ('?' if m.group(2) else ''),
+        database_url
+    ).rstrip('?&')
+    # Ensure sslmode=require for cloud Postgres if not explicitly specified
+    if "sslmode=" not in database_url:
+        separator = "&" if "?" in database_url else "?"
+        database_url = f"{database_url}{separator}sslmode=require"
+
 if not database_url:
     if is_vercel:
         # On Vercel, the app root filesystem is strictly read-only.
@@ -49,18 +76,27 @@ if not database_url:
         instance_dir = os.path.join(BASE_DIR, 'instance')
         os.makedirs(instance_dir, exist_ok=True)
         database_url = f"sqlite:///{os.path.join(instance_dir, 'campus_connect.db')}"
-elif database_url.startswith("postgres://"):
-    database_url = database_url.replace("postgres://", "postgresql://", 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Serverless pool optimization for PostgreSQL (prevents idle timeouts / dropped connections)
+# Serverless pool optimization for PostgreSQL (prevents idle timeouts / dropped connections on reload)
 if database_url.startswith("postgresql"):
-    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-        "pool_pre_ping": True,
-        "pool_recycle": 300,
-    }
+    from sqlalchemy.pool import NullPool
+    if is_vercel:
+        # In serverless environments, avoid keeping stale connection pools across cold starts & reloads
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            "poolclass": NullPool,
+            "connect_args": {
+                "connect_timeout": 15,
+                "sslmode": "require",
+            }
+        }
+    else:
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            "pool_pre_ping": True,
+            "pool_recycle": 300,
+        }
 
 db.init_app(app)
 
@@ -183,28 +219,46 @@ def get_current_user():
     if session["uid"] == "__admin__":
         return {"id": "__admin__", "name": "Administrator", "role": "admin", "email": ADMIN_EMAIL}
     
-    user = User.query.get(session["uid"])
-    if user:
-        u_dict = {
-            "id": user.id,
-            "uid": user.id,
-            "email": user.email,
-            "name": user.name,
-            "role": user.role,
-            "department": user.department,
-            "departments": json.loads(user.departments) if user.departments else [],
-            "roll_number": user.roll_number,
-            "year": user.year,
-            "bio": user.bio,
-            "avatar_url": user.avatar_url,
-            "designation": user.designation,
-            "club_name": user.club_name,
-            "club_category": user.club_category,
-            "description": user.description,
-            "is_active": user.is_active
-        }
-        return u_dict
+    try:
+        user = User.query.get(session["uid"])
+        if user:
+            return {
+                "id": user.id,
+                "uid": user.id,
+                "email": user.email,
+                "name": user.name,
+                "role": user.role,
+                "department": user.department,
+                "departments": json.loads(user.departments) if user.departments else [],
+                "roll_number": user.roll_number,
+                "year": user.year,
+                "bio": user.bio,
+                "avatar_url": user.avatar_url,
+                "designation": user.designation,
+                "club_name": user.club_name,
+                "club_category": user.club_category,
+                "description": user.description,
+                "is_active": user.is_active
+            }
+    except Exception as e:
+        app.logger.warning(f"Error fetching current user from session: {e}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
     return None
+
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    if exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+    try:
+        db.session.remove()
+    except Exception:
+        pass
 
 def firebase_web_config():
     return {}

@@ -35,7 +35,9 @@ def migrate():
         sys.exit(1)
 
     if pg_url.startswith("postgres://"):
-        pg_url = pg_url.replace("postgres://", "postgresql://", 1)
+        pg_url = "postgresql+psycopg2://" + pg_url[11:]
+    elif pg_url.startswith("postgresql://"):
+        pg_url = "postgresql+psycopg2://" + pg_url[13:]
 
     print("\n" + "=" * 60)
     print("Campus Connect 3.0 — SQLite to PostgreSQL Data Migration")
