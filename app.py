@@ -248,6 +248,12 @@ def get_current_user():
             pass
     return None
 
+@app.before_request
+def ensure_clean_script_name():
+    script_name = request.environ.get('SCRIPT_NAME', '')
+    if script_name and (script_name.startswith('/api') or script_name.endswith('.py')):
+        request.environ['SCRIPT_NAME'] = ''
+
 @app.teardown_appcontext
 def shutdown_session(exception=None):
     if exception:
