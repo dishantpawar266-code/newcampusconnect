@@ -6,9 +6,9 @@
 <div class="page-header">
   <div class="page-header-left">
     <h1 class="page-title">Notices</h1>
-    <p class="page-subtitle">Department announcements and club updates</p>
+    <p class="page-subtitle">Official department circulars, academic announcements, and club updates</p>
   </div>
-  {% if current_user.role in ('faculty', 'club') %}
+  {% if current_user.role in ('faculty', 'club', 'admin') %}
     <a href="{{ url_for('create_notice') }}" class="btn btn-primary">+ New Notice</a>
   {% endif %}
 </div>
@@ -21,12 +21,14 @@
            data-search-target=".searchable-item"
            placeholder="Search notices..." />
   </div>
-  <select id="dept-filter" class="form-control" style="width:auto;min-width:200px">
-    <option value="">All Departments</option>
-    {% for dept in departments %}
-      <option value="{{ dept }}" {{ 'selected' if request.args.get('department') == dept }}>{{ dept }}</option>
-    {% endfor %}
-  </select>
+  <form method="GET" action="{{ url_for('notices') }}" style="display:flex;gap:8px;align-items:center">
+    <select name="department" class="form-control" style="width:auto;min-width:200px" onchange="this.form.submit()">
+      <option value="">All Departments</option>
+      {% for dept in departments %}
+        <option value="{{ dept }}" {{ 'selected' if request.args.get('department') == dept }}>{{ dept }}</option>
+      {% endfor %}
+    </select>
+  </form>
   <select class="form-control" id="category-filter" style="width:auto">
     <option value="">All Categories</option>
     <option value="academic">Academic</option>
@@ -38,7 +40,7 @@
 {% if notices %}
   <div class="item-list" id="notices-list">
     {% for notice in notices %}
-      <div class="item-card searchable-item" data-category="{{ notice.category }}">
+      <div class="item-card searchable-item" data-category="{{ notice.category }}" style="border-left:4px solid {{ '#9333ea' if notice.category == 'club' else '#3b82f6' }}">
         <div class="item-card-top">
           <div>
             <div class="item-card-title">{{ notice.title }}</div>
@@ -53,17 +55,50 @@
               <span class="meta-item">📅 {{ notice.created_at[:10] if notice.created_at else '' }}</span>
             </div>
           </div>
-          {% if current_user.uid == notice.author_uid %}
+          {% if current_user.uid == notice.author_uid or current_user.role == 'admin' %}
             <div style="display:flex;gap:8px">
-              <a href="{{ url_for('edit_notice', notice_id=notice.id) }}" class="btn btn-ghost btn-sm">✏️</a>
+              <a href="{{ url_for('edit_notice', notice_id=notice.id) }}" class="btn btn-ghost btn-sm" title="Edit notice">✏️ Edit</a>
               <form method="POST" action="{{ url_for('delete_notice', notice_id=notice.id) }}"
-                    data-confirm="Are you sure you want to delete this notice?">
-                <button type="submit" class="btn btn-ghost btn-sm" style="color:#ef4444">🗑️</button>
+                    onsubmit="return confirm('Are you sure you want to delete this notice?');" style="margin:0">
+                <button type="submit" class="btn btn-ghost btn-sm" style="color:#ef4444" title="Delete notice">🗑️</button>
               </form>
             </div>
           {% endif %}
         </div>
-        <div class="item-card-body">{{ notice.content }}</div>
+
+        <div class="item-card-body" style="white-space:pre-line;line-height:1.6;margin-top:12px">
+          {{ notice.content }}
+        </div>
+
+        <!-- Attachment Section -->
+        {% if notice.file_url %}
+          <div style="margin-top:14px;padding:12px;background:var(--gray-50);border-radius:var(--border-radius-sm);border:1px solid var(--gray-200)">
+            {% if notice.file_type in ('jpg', 'jpeg', 'png', 'webp') %}
+              <div style="margin-bottom:10px">
+                <a href="{{ notice.file_url }}" target="_blank" rel="noopener">
+                  <img src="{{ notice.file_url }}" alt="{{ notice.file_name }}"
+                       style="max-width:100%;max-height:360px;object-fit:cover;border-radius:6px;border:1px solid var(--gray-200);display:block">
+                </a>
+              </div>
+            {% endif %}
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:18px">
+                  {% if notice.file_type == 'pdf' %}📕{% elif notice.file_type in ('jpg','jpeg','png','webp') %}🖼️{% else %}📄{% endif %}
+                </span>
+                <span style="font-size:13px;font-weight:600;color:var(--gray-800)">{{ notice.file_name or 'Attached Document' }}</span>
+              </div>
+              <div style="display:flex;gap:8px">
+                <a href="{{ notice.file_url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline">
+                  👁️ View
+                </a>
+                <a href="{{ notice.file_url }}?download=1" class="btn btn-sm btn-secondary">
+                  ⬇️ Download
+                </a>
+              </div>
+            </div>
+          </div>
+        {% endif %}
       </div>
     {% endfor %}
   </div>
@@ -73,13 +108,13 @@
       <div class="empty-state-icon">📭</div>
       <div class="empty-state-title">No notices available yet.</div>
       <div class="empty-state-text">
-        {% if current_user.role in ('faculty', 'club') %}
+        {% if current_user.role in ('faculty', 'club', 'admin') %}
           Be the first to publish a notice for your department or club.
         {% else %}
           Faculty and clubs will publish notices here.
         {% endif %}
       </div>
-      {% if current_user.role in ('faculty', 'club') %}
+      {% if current_user.role in ('faculty', 'club', 'admin') %}
         <a href="{{ url_for('create_notice') }}" class="btn btn-primary" style="margin-top:16px">+ Publish Notice</a>
       {% endif %}
     </div>
@@ -91,15 +126,18 @@
 {% block extra_scripts %}
 <script>
   // Category filter
-  document.getElementById('category-filter').addEventListener('change', function() {
-    const val = this.value;
-    document.querySelectorAll('.searchable-item').forEach(item => {
-      if (!val || item.dataset.category === val) {
-        item.style.display = '';
-      } else {
-        item.style.display = 'none';
-      }
+  var catFilter = document.getElementById('category-filter');
+  if (catFilter) {
+    catFilter.addEventListener('change', function() {
+      const val = this.value;
+      document.querySelectorAll('.searchable-item').forEach(item => {
+        if (!val || item.dataset.category === val) {
+          item.style.display = '';
+        } else {
+          item.style.display = 'none';
+        }
+      });
     });
-  });
+  }
 </script>
 {% endblock %}

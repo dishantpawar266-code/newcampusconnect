@@ -6,9 +6,15 @@
 <div class="page-header">
   <div class="page-header-left">
     <h1 class="page-title">Assignments</h1>
-    <p class="page-subtitle">View and manage academic assignments</p>
+    <p class="page-subtitle">
+      {% if current_user.role == 'faculty' %}
+        Create and evaluate course assignments and review student submissions
+      {% else %}
+        View course coursework, download instructions, and submit your work
+      {% endif %}
+    </p>
   </div>
-  {% if current_user.role == 'faculty' %}
+  {% if current_user.role in ('faculty', 'admin') %}
     <a href="{{ url_for('create_assignment') }}" class="btn btn-primary">+ New Assignment</a>
   {% endif %}
 </div>
@@ -17,31 +23,43 @@
   <div class="search-input-wrap">
     <span class="search-icon">🔍</span>
     <input type="text" class="form-control search-input" id="client-search"
-           data-search-target=".searchable-item" placeholder="Search assignments..." />
+           data-search-target=".searchable-item" placeholder="Search assignments by title or subject..." />
   </div>
-  <select id="dept-filter" class="form-control" style="width:auto;min-width:200px">
-    <option value="">All Departments</option>
-    {% for dept in departments %}
-      <option value="{{ dept }}" {{ 'selected' if request.args.get('department') == dept }}>{{ dept }}</option>
-    {% endfor %}
-  </select>
+  <form method="GET" action="{{ url_for('assignments') }}" style="display:flex;gap:8px;align-items:center">
+    <select name="department" class="form-control" style="width:auto;min-width:200px" onchange="this.form.submit()">
+      <option value="">All Departments</option>
+      {% for dept in departments %}
+        <option value="{{ dept }}" {{ 'selected' if request.args.get('department') == dept }}>{{ dept }}</option>
+      {% endfor %}
+    </select>
+  </form>
 </div>
 
 {% if assignments %}
   <div class="item-list">
     {% for a in assignments %}
-      <div class="item-card searchable-item">
+      <div class="item-card searchable-item" style="border-left:4px solid var(--primary-500)">
         <div class="item-card-top">
-          <div>
-            <div class="item-card-title">{{ a.title }}</div>
-            <div class="item-card-meta">
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span class="item-card-title">{{ a.title }}</span>
+              {% if current_user.role == 'student' %}
+                {% if a.my_submission %}
+                  <span class="badge badge-green">✓ Submitted</span>
+                {% else %}
+                  <span class="badge badge-orange">⏳ Not Submitted</span>
+                {% endif %}
+              {% endif %}
+            </div>
+
+            <div class="item-card-meta" style="margin-top:6px;gap:12px;flex-wrap:wrap">
               {% if a.subject %}
                 <span class="badge badge-blue">{{ a.subject }}</span>
               {% endif %}
               {% if a.department %}
                 <span class="meta-item">🏢 {{ a.department }}</span>
               {% endif %}
-              <span class="meta-item">👤 {{ a.author_name }}</span>
+              <span class="meta-item">👨‍🏫 {{ a.author_name }}</span>
               {% if a.deadline %}
                 <span class="meta-item" style="color:#dc2626;font-weight:600">
                   ⏰ Due: {{ a.deadline }}
@@ -49,21 +67,109 @@
               {% endif %}
             </div>
           </div>
-          {% if current_user.uid == a.author_uid %}
-            <div style="display:flex;gap:8px">
-              <a href="{{ url_for('edit_assignment', assignment_id=a.id) }}" class="btn btn-ghost btn-sm">✏️ Edit</a>
+
+          <!-- Faculty Action Buttons -->
+          {% if current_user.role in ('faculty', 'admin') and (current_user.uid == a.author_uid or current_user.role == 'admin') %}
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <a href="{{ url_for('view_assignment_submissions', assignment_id=a.id) }}" class="btn btn-outline btn-sm">
+                👥 Submissions ({{ a.submissions_count }})
+              </a>
+              <a href="{{ url_for('edit_assignment', assignment_id=a.id) }}" class="btn btn-ghost btn-sm" title="Edit">
+                ✏️ Edit
+              </a>
               <form method="POST" action="{{ url_for('delete_assignment', assignment_id=a.id) }}"
-                    data-confirm="Delete this assignment? This cannot be undone.">
-                <button type="submit" class="btn btn-ghost btn-sm" style="color:#ef4444">🗑️</button>
+                    onsubmit="return confirm('Delete this assignment? All student submissions will also be deleted.');" style="margin:0">
+                <button type="submit" class="btn btn-ghost btn-sm" style="color:#ef4444" title="Delete">🗑️</button>
               </form>
             </div>
           {% endif %}
         </div>
+
         {% if a.description %}
-          <div class="item-card-body">{{ a.description }}</div>
+          <div class="item-card-body" style="margin-top:12px;line-height:1.5;color:var(--gray-700)">
+            {{ a.description }}
+          </div>
         {% endif %}
-        <div style="font-size:12px;color:var(--gray-400);margin-top:10px">
-          Posted {{ a.created_at[:10] if a.created_at else '' }}
+
+        <!-- Attachment Download Banner -->
+        {% if a.file_url %}
+          <div style="margin-top:14px;padding:10px 14px;background:var(--gray-50);border-radius:var(--border-radius-sm);display:flex;align-items:center;justify-content:space-between;border:1px solid var(--gray-200);flex-wrap:wrap;gap:10px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:18px">📎</span>
+              <div>
+                <div style="font-size:13px;font-weight:600;color:var(--gray-800)">{{ a.file_name or 'Assignment Attachment' }}</div>
+                <div style="font-size:11px;color:var(--gray-500)">{{ a.file_type|upper if a.file_type else 'FILE' }} Document</div>
+              </div>
+            </div>
+            <a href="{{ a.file_url }}?download=1" class="btn btn-sm btn-secondary">
+              ⬇️ Download File
+            </a>
+          </div>
+        {% endif %}
+
+        <!-- Student Submission Section -->
+        {% if current_user.role == 'student' %}
+          <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--gray-100)">
+            {% if a.my_submission %}
+              <div style="padding:12px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--border-radius-sm);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+                <div>
+                  <div style="font-size:13px;font-weight:600;color:#166534">
+                    ✓ Your Work is Submitted
+                  </div>
+                  <div style="font-size:12px;color:#15803d;margin-top:2px">
+                    File: <strong>{{ a.my_submission.file_name }}</strong> · Submitted {{ a.my_submission.submitted_at }}
+                  </div>
+                  {% if a.my_submission.remarks %}
+                    <div style="font-size:12px;color:#14532d;margin-top:4px">
+                      Remarks: <em>{{ a.my_submission.remarks }}</em>
+                    </div>
+                  {% endif %}
+                </div>
+                <div style="display:flex;gap:8px">
+                  <a href="{{ a.my_submission.file_url }}?download=1" class="btn btn-sm btn-outline">
+                    ⬇️ Download My Submission
+                  </a>
+                  <button type="button" class="btn btn-sm btn-secondary" onclick="toggleSubmitForm('{{ a.id }}')">
+                    🔄 Resubmit
+                  </button>
+                </div>
+              </div>
+            {% else %}
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+                <div style="font-size:13px;color:var(--gray-600)">
+                  You haven't submitted your response for this assignment yet.
+                </div>
+                <button type="button" class="btn btn-primary btn-sm" onclick="toggleSubmitForm('{{ a.id }}')">
+                  📤 Submit Assignment
+                </button>
+              </div>
+            {% endif %}
+
+            <!-- Collapsible Submission Upload Form -->
+            <div id="submit-form-{{ a.id }}" style="display:none;margin-top:14px;padding:16px;background:var(--gray-50);border-radius:var(--border-radius-sm);border:1px solid var(--gray-200)">
+              <h4 style="margin:0 0 12px 0;font-size:14px;font-weight:600">📤 Upload Your Solution</h4>
+              <form method="POST" action="{{ url_for('submit_assignment', assignment_id=a.id) }}" enctype="multipart/form-data">
+                <div class="form-group" style="margin-bottom:12px">
+                  <label class="form-label">Submission File <span class="required">*</span></label>
+                  <input type="file" name="file" class="form-control" required
+                         accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.zip,.rar,.jpg,.jpeg,.png">
+                  <div class="form-hint">Accepted: PDF, Word DOCX, PPTX, TXT, Images · Max 10MB</div>
+                </div>
+                <div class="form-group" style="margin-bottom:14px">
+                  <label class="form-label">Remarks / Student Note (Optional)</label>
+                  <input type="text" name="remarks" class="form-control" placeholder="Any comments or notes for your professor...">
+                </div>
+                <div style="display:flex;gap:10px">
+                  <button type="submit" class="btn btn-success btn-sm">🚀 Submit to Faculty</button>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="toggleSubmitForm('{{ a.id }}')">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        {% endif %}
+
+        <div style="font-size:11px;color:var(--gray-400);margin-top:12px">
+          Created {{ a.created_at[:10] if a.created_at else '' }}
         </div>
       </div>
     {% endfor %}
@@ -72,19 +178,30 @@
   <div class="card">
     <div class="empty-state">
       <div class="empty-state-icon">📋</div>
-      <div class="empty-state-title">No assignments yet.</div>
+      <div class="empty-state-title">No assignments posted yet</div>
       <div class="empty-state-text">
-        {% if current_user.role == 'faculty' %}
-          Create your first assignment for your students.
+        {% if current_user.role in ('faculty', 'admin') %}
+          Create an assignment for your students to review, download, and submit their solutions.
         {% else %}
-          Your faculty will post assignments here.
+          Your faculty will post assignments and course deliverables here.
         {% endif %}
       </div>
-      {% if current_user.role == 'faculty' %}
-        <a href="{{ url_for('create_assignment') }}" class="btn btn-primary" style="margin-top:16px">+ Create Assignment</a>
+      {% if current_user.role in ('faculty', 'admin') %}
+        <a href="{{ url_for('create_assignment') }}" class="btn btn-primary" style="margin-top:16px">+ Create First Assignment</a>
       {% endif %}
     </div>
   </div>
 {% endif %}
 
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function toggleSubmitForm(id) {
+  var el = document.getElementById('submit-form-' + id);
+  if (el) {
+    el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none';
+  }
+}
+</script>
 {% endblock %}

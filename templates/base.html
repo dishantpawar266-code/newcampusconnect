@@ -24,36 +24,89 @@
     </div>
     
     <nav class="sidebar-nav">
-      <div class="sidebar-nav-section">Main Menu</div>
-      <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
-        <span class="nav-icon">📊</span> Dashboard
-      </a>
-      <a href="{{ url_for('planner') }}" class="{% if request.endpoint == 'planner' %}active{% endif %}">
-        <span class="nav-icon">📝</span> Task Planner
-      </a>
-      <a href="{{ url_for('exams') }}" class="{% if request.endpoint == 'exams' %}active{% endif %}">
-        <span class="nav-icon">⏰</span> Exam Reminders
-      </a>
-      <a href="{{ url_for('study_hub') }}" class="{% if request.endpoint == 'study_hub' %}active{% endif %}">
-        <span class="nav-icon">📚</span> Study Hub
-      </a>
-      <a href="{{ url_for('resources') }}" class="{% if request.endpoint == 'resources' %}active{% endif %}">
-        <span class="nav-icon">🌐</span> Resource Hub
-      </a>
-      
-      <div class="sidebar-nav-section">Community</div>
-      <a href="{{ url_for('classmates') }}" class="{% if request.endpoint == 'classmates' %}active{% endif %}">
-        <span class="nav-icon">💬</span> Classmates & Sharing
-      </a>
-      <a href="{{ url_for('notes') }}" class="{% if request.endpoint == 'notes' %}active{% endif %}">
-        <span class="nav-icon">📖</span> Notes
-      </a>
-      <a href="{{ url_for('doubts') }}" class="{% if request.endpoint == 'doubts' %}active{% endif %}">
-        <span class="nav-icon">❓</span> Ask Faculty
-      </a>
-      <a href="{{ url_for('quizzes') }}" class="{% if request.endpoint == 'quizzes' %}active{% endif %}">
-        <span class="nav-icon">🏆</span> Quizzes
-      </a>
+      {% if session.get('role') == 'faculty' %}
+        <div class="sidebar-nav-section">Faculty Portal</div>
+        <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+          <span class="nav-icon">📊</span> Overview
+        </a>
+        <a href="{{ url_for('doubts') }}" class="{% if request.endpoint == 'doubts' %}active{% endif %}">
+          <span class="nav-icon">❓</span> Ask Doubts
+        </a>
+        <a href="{{ url_for('notes') }}" class="{% if request.endpoint == 'notes' %}active{% endif %}">
+          <span class="nav-icon">📖</span> Notes
+        </a>
+        <a href="{{ url_for('assignments') }}" class="{% if request.endpoint in ('assignments', 'create_assignment', 'edit_assignment', 'view_assignment_submissions') %}active{% endif %}">
+          <span class="nav-icon">📋</span> Assignments
+        </a>
+        <a href="{{ url_for('quizzes') }}" class="{% if request.endpoint in ('quizzes', 'create_quiz', 'view_quiz_results') %}active{% endif %}">
+          <span class="nav-icon">🏆</span> Quizzes
+        </a>
+        <a href="{{ url_for('notices') }}" class="{% if request.endpoint in ('notices', 'create_notice', 'edit_notice') %}active{% endif %}">
+          <span class="nav-icon">📢</span> Notices
+        </a>
+        <div class="sidebar-nav-section">Account</div>
+        <a href="{{ url_for('profile') }}" class="{% if request.endpoint == 'profile' %}active{% endif %}">
+          <span class="nav-icon">👤</span> Profile
+        </a>
+
+      {% elif session.get('role') == 'club' %}
+        <div class="sidebar-nav-section">Club Management</div>
+        <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+          <span class="nav-icon">📊</span> Overview
+        </a>
+        <a href="{{ url_for('notices') }}" class="{% if request.endpoint in ('notices', 'create_notice', 'edit_notice') %}active{% endif %}">
+          <span class="nav-icon">📢</span> Club Notices
+        </a>
+        <a href="{{ url_for('resources') }}" class="{% if request.endpoint == 'resources' %}active{% endif %}">
+          <span class="nav-icon">🌐</span> Events & Resources
+        </a>
+        <a href="{{ url_for('doubts') }}" class="{% if request.endpoint == 'doubts' %}active{% endif %}">
+          <span class="nav-icon">❓</span> Student Questions
+        </a>
+        <div class="sidebar-nav-section">Account</div>
+        <a href="{{ url_for('profile') }}" class="{% if request.endpoint == 'profile' %}active{% endif %}">
+          <span class="nav-icon">🏛️</span> Club Profile
+        </a>
+
+      {% else %}
+        {# STUDENT SIDEBAR (Preserved & Enhanced) #}
+        <div class="sidebar-nav-section">Main Menu</div>
+        <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+          <span class="nav-icon">📊</span> Dashboard
+        </a>
+        <a href="{{ url_for('planner') }}" class="{% if request.endpoint == 'planner' %}active{% endif %}">
+          <span class="nav-icon">📝</span> Task Planner
+        </a>
+        <a href="{{ url_for('exams') }}" class="{% if request.endpoint == 'exams' %}active{% endif %}">
+          <span class="nav-icon">⏰</span> Exam Reminders
+        </a>
+        <a href="{{ url_for('study_hub') }}" class="{% if request.endpoint == 'study_hub' %}active{% endif %}">
+          <span class="nav-icon">📚</span> Study Hub
+        </a>
+        <a href="{{ url_for('resources') }}" class="{% if request.endpoint == 'resources' %}active{% endif %}">
+          <span class="nav-icon">🌐</span> Resource Hub
+        </a>
+        
+        <div class="sidebar-nav-section">Academic & Community</div>
+        <a href="{{ url_for('classmates') }}" class="{% if request.endpoint == 'classmates' %}active{% endif %}">
+          <span class="nav-icon">💬</span> Classmates & Sharing
+        </a>
+        <a href="{{ url_for('notes') }}" class="{% if request.endpoint == 'notes' %}active{% endif %}">
+          <span class="nav-icon">📖</span> Notes
+        </a>
+        <a href="{{ url_for('assignments') }}" class="{% if request.endpoint == 'assignments' %}active{% endif %}">
+          <span class="nav-icon">📋</span> Assignments
+        </a>
+        <a href="{{ url_for('notices') }}" class="{% if request.endpoint == 'notices' %}active{% endif %}">
+          <span class="nav-icon">📢</span> Notices
+        </a>
+        <a href="{{ url_for('doubts') }}" class="{% if request.endpoint == 'doubts' %}active{% endif %}">
+          <span class="nav-icon">❓</span> Ask Faculty
+        </a>
+        <a href="{{ url_for('quizzes') }}" class="{% if request.endpoint in ('quizzes', 'attempt_quiz', 'quiz_result') %}active{% endif %}">
+          <span class="nav-icon">🏆</span> Quizzes
+        </a>
+      {% endif %}
     </nav>
     
     <div class="sidebar-user">
@@ -70,26 +123,70 @@
 
   <!-- Mobile Bottom Nav -->
   <nav class="bottom-nav">
-    <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
-      <span class="bottom-nav-icon">📊</span>
-      <span>Home</span>
-    </a>
-    <a href="{{ url_for('planner') }}" class="{% if request.endpoint == 'planner' %}active{% endif %}">
-      <span class="bottom-nav-icon">📝</span>
-      <span>Planner</span>
-    </a>
-    <a href="{{ url_for('exams') }}" class="{% if request.endpoint == 'exams' %}active{% endif %}">
-      <span class="bottom-nav-icon">⏰</span>
-      <span>Exams</span>
-    </a>
-    <a href="{{ url_for('study_hub') }}" class="{% if request.endpoint == 'study_hub' %}active{% endif %}">
-      <span class="bottom-nav-icon">📚</span>
-      <span>Study</span>
-    </a>
-    <a href="{{ url_for('classmates') }}" class="{% if request.endpoint == 'classmates' %}active{% endif %}">
-      <span class="bottom-nav-icon">💬</span>
-      <span>Chat</span>
-    </a>
+    {% if session.get('role') == 'faculty' %}
+      <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+        <span class="bottom-nav-icon">📊</span>
+        <span>Home</span>
+      </a>
+      <a href="{{ url_for('assignments') }}" class="{% if request.endpoint == 'assignments' %}active{% endif %}">
+        <span class="bottom-nav-icon">📋</span>
+        <span>Assign</span>
+      </a>
+      <a href="{{ url_for('quizzes') }}" class="{% if request.endpoint == 'quizzes' %}active{% endif %}">
+        <span class="bottom-nav-icon">🏆</span>
+        <span>Quizzes</span>
+      </a>
+      <a href="{{ url_for('doubts') }}" class="{% if request.endpoint == 'doubts' %}active{% endif %}">
+        <span class="bottom-nav-icon">❓</span>
+        <span>Doubts</span>
+      </a>
+      <a href="{{ url_for('notices') }}" class="{% if request.endpoint == 'notices' %}active{% endif %}">
+        <span class="bottom-nav-icon">📢</span>
+        <span>Notices</span>
+      </a>
+    {% elif session.get('role') == 'club' %}
+      <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+        <span class="bottom-nav-icon">📊</span>
+        <span>Home</span>
+      </a>
+      <a href="{{ url_for('notices') }}" class="{% if request.endpoint == 'notices' %}active{% endif %}">
+        <span class="bottom-nav-icon">📢</span>
+        <span>Notices</span>
+      </a>
+      <a href="{{ url_for('doubts') }}" class="{% if request.endpoint == 'doubts' %}active{% endif %}">
+        <span class="bottom-nav-icon">❓</span>
+        <span>Doubts</span>
+      </a>
+      <a href="{{ url_for('resources') }}" class="{% if request.endpoint == 'resources' %}active{% endif %}">
+        <span class="bottom-nav-icon">🌐</span>
+        <span>Events</span>
+      </a>
+      <a href="{{ url_for('profile') }}" class="{% if request.endpoint == 'profile' %}active{% endif %}">
+        <span class="bottom-nav-icon">👤</span>
+        <span>Profile</span>
+      </a>
+    {% else %}
+      <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+        <span class="bottom-nav-icon">📊</span>
+        <span>Home</span>
+      </a>
+      <a href="{{ url_for('planner') }}" class="{% if request.endpoint == 'planner' %}active{% endif %}">
+        <span class="bottom-nav-icon">📝</span>
+        <span>Planner</span>
+      </a>
+      <a href="{{ url_for('exams') }}" class="{% if request.endpoint == 'exams' %}active{% endif %}">
+        <span class="bottom-nav-icon">⏰</span>
+        <span>Exams</span>
+      </a>
+      <a href="{{ url_for('study_hub') }}" class="{% if request.endpoint == 'study_hub' %}active{% endif %}">
+        <span class="bottom-nav-icon">📚</span>
+        <span>Study</span>
+      </a>
+      <a href="{{ url_for('classmates') }}" class="{% if request.endpoint == 'classmates' %}active{% endif %}">
+        <span class="bottom-nav-icon">💬</span>
+        <span>Chat</span>
+      </a>
+    {% endif %}
   </nav>
 
   <!-- Main Content Area -->

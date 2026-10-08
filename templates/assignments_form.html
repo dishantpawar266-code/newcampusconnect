@@ -6,10 +6,10 @@
 <div style="max-width:680px">
   <div class="card">
     <div class="card-header">
-      <span class="card-title">{{ 'Edit Assignment' if assignment else 'Create Assignment' }}</span>
+      <span class="card-title">{{ '✏️ Edit Assignment' if assignment else '📋 Create New Assignment' }}</span>
     </div>
     <div class="card-body">
-      <form method="POST">
+      <form method="POST" enctype="multipart/form-data">
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" for="title">Assignment Title <span class="required">*</span></label>
@@ -26,9 +26,9 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="description">Description</label>
-          <textarea id="description" name="description" class="form-control" rows="5"
-                    placeholder="Provide detailed assignment instructions...">{{ assignment.description if assignment else '' }}</textarea>
+          <label class="form-label" for="description">Description & Guidelines</label>
+          <textarea id="description" name="description" class="form-control" rows="4"
+                    placeholder="Provide detailed assignment instructions, deliverables, and grading criteria...">{{ assignment.description if assignment else '' }}</textarea>
         </div>
 
         <div class="form-row">
@@ -48,7 +48,28 @@
           </div>
         </div>
 
-        <div style="display:flex;gap:12px;margin-top:8px">
+        <div class="form-group">
+          <label class="form-label">Assignment File / Problem Statement (Optional)</label>
+          {% if assignment and assignment.file_name %}
+            <div style="margin-bottom:10px;padding:8px 12px;background:var(--gray-50);border-radius:var(--border-radius-sm);font-size:13px;display:flex;align-items:center;gap:8px">
+              <span>📎 Current file: <strong>{{ assignment.file_name }}</strong></span>
+            </div>
+          {% endif %}
+          <div style="border:2px dashed var(--gray-300);border-radius:var(--border-radius-sm);padding:24px;text-align:center;transition:border-color .2s">
+            <div style="font-size:28px;margin-bottom:8px">📎</div>
+            <div style="font-size:13px;color:var(--gray-600);margin-bottom:8px">Upload problem sheet, guidelines, or starter code</div>
+            <label class="btn btn-secondary btn-sm" style="cursor:pointer">
+              Browse File
+              <input type="file" name="file" id="file-input" style="display:none"
+                     accept=".pdf,.txt,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png,.webp"
+                     onchange="document.getElementById('file-name-display').textContent = this.files[0]?.name || 'No file selected'" />
+            </label>
+            <div id="file-name-display" style="margin-top:8px;font-size:12px;color:var(--gray-500)">No file selected</div>
+          </div>
+          <div class="form-hint">Accepted formats: PDF, DOC, DOCX, PPT, PPTX, TXT, Images · Max 10MB</div>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-top:16px">
           <button type="submit" class="btn btn-primary">
             {{ '💾 Save Changes' if assignment else '📋 Create Assignment' }}
           </button>

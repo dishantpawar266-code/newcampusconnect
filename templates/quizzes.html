@@ -5,11 +5,17 @@
 
 <div class="page-header">
   <div class="page-header-left">
-    <h1 class="page-title">Quizzes</h1>
-    <p class="page-subtitle">Online assessments created by faculty</p>
+    <h1 class="page-title">Quizzes & Online Assessments</h1>
+    <p class="page-subtitle">
+      {% if current_user.role == 'faculty' %}
+        Build, manage and analyze student quiz assessments
+      {% else %}
+        Test your subject knowledge and view instant results
+      {% endif %}
+    </p>
   </div>
   {% if current_user.role == 'faculty' %}
-    <a href="{{ url_for('create_quiz') }}" class="btn btn-primary">+ Create Quiz</a>
+    <a href="{{ url_for('create_quiz') }}" class="btn btn-primary">+ Create New Quiz</a>
   {% endif %}
 </div>
 
@@ -17,7 +23,7 @@
   <div class="item-list">
     {% for quiz in quizzes %}
       <div class="item-card">
-        <div class="item-card-top">
+        <div class="item-card-top" style="flex-wrap:wrap; gap:12px;">
           <div>
             <div class="item-card-title">{{ quiz.title }}</div>
             <div class="item-card-meta">
@@ -26,17 +32,48 @@
               </span>
               {% if quiz.department %}
                 <span class="meta-item">🏢 {{ quiz.department }}</span>
+              {% else %}
+                <span class="meta-item">🏢 All Departments</span>
               {% endif %}
-              <span class="meta-item">👤 {{ quiz.creator_name }}</span>
-              <span class="meta-item">📝 {{ quiz.questions | length }} question(s)</span>
+              <span class="meta-item">👤 By {{ quiz.creator_name }}</span>
+              <span class="meta-item">📝 {{ quiz.questions_count }} question(s)</span>
               <span class="meta-item">📅 {{ quiz.created_at[:10] if quiz.created_at else '' }}</span>
             </div>
           </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            {% if current_user.role == 'student' and quiz.is_active %}
-              <a href="{{ url_for('attempt_quiz', quiz_id=quiz.id) }}" class="btn btn-primary btn-sm">
-                📝 Attempt
+
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            {% if current_user.role == 'faculty' %}
+              <span class="badge badge-blue">{{ quiz.attempts_count }} student attempt(s)</span>
+              <a href="{{ url_for('view_quiz_results', quiz_id=quiz.id) }}" class="btn btn-outline btn-sm">
+                📊 View Results
               </a>
+              <form method="POST" action="{{ url_for('toggle_quiz', quiz_id=quiz.id) }}">
+                <button type="submit" class="btn btn-ghost btn-sm" title="Toggle active status">
+                  {{ 'Pause' if quiz.is_active else 'Activate' }}
+                </button>
+              </form>
+              <form method="POST" action="{{ url_for('delete_quiz', quiz_id=quiz.id) }}"
+                    data-confirm="Delete this quiz and all student results? This cannot be undone.">
+                <button type="submit" class="btn btn-ghost btn-sm" style="color:#ef4444;" title="Delete Quiz">
+                  🗑️
+                </button>
+              </form>
+
+            {% elif current_user.role == 'student' %}
+              {% if quiz.my_result %}
+                <span class="badge badge-green" style="font-weight:600;">
+                  ✓ Completed: {{ quiz.my_result.score }}/{{ quiz.my_result.total }}
+                </span>
+                <a href="{{ url_for('quiz_result', quiz_id=quiz.id) }}" class="btn btn-outline btn-sm">
+                  View Result
+                </a>
+              {% elif quiz.is_active %}
+                <a href="{{ url_for('attempt_quiz', quiz_id=quiz.id) }}" class="btn btn-primary btn-sm">
+                  📝 Attempt Quiz
+                </a>
+              {% else %}
+                <span class="badge badge-gray">Closed</span>
+              {% endif %}
             {% endif %}
           </div>
         </div>
@@ -46,13 +83,13 @@
 {% else %}
   <div class="card">
     <div class="empty-state">
-      <div class="empty-state-icon">📝</div>
-      <div class="empty-state-title">No quizzes available yet.</div>
+      <div class="empty-state-icon">🏆</div>
+      <div class="empty-state-title">No quizzes available right now.</div>
       <div class="empty-state-text">
         {% if current_user.role == 'faculty' %}
-          Create your first quiz to test student knowledge.
+          Create your first quiz to evaluate student learning with instant grading.
         {% else %}
-          Your faculty will create quizzes here. Stay tuned!
+          Your faculty has not posted any active quizzes yet. Check back soon!
         {% endif %}
       </div>
       {% if current_user.role == 'faculty' %}

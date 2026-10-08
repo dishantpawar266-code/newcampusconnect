@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+
+{% block title %}Faculty Dashboard — Campus Connect{% endblock %}
+{% block header_title %}Faculty Portal{% endblock %}
+
+{% block content %}
+
+<!-- Personalized Welcome Banner -->
+<div class="welcome-banner">
+  <div class="welcome-banner-content">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
+      <div>
+        <h1 class="welcome-heading">
+          Good <span id="greeting-time">day</span>, {{ session.get('name', 'Professor').split(' ')[0] }} 👋
+        </h1>
+        <p class="welcome-subheading">
+          Faculty Management Portal. Coordinate coursework, track student submissions, answer doubts, and conduct quizzes.
+        </p>
+        <div class="welcome-badge-row">
+          <span class="welcome-badge">
+            <span>👨‍🏫</span> Faculty
+          </span>
+          {% if current_user.designation %}
+          <span class="welcome-badge">
+            <span>🏷️</span> {{ current_user.designation }}
+          </span>
+          {% endif %}
+          {% if current_user.departments %}
+          <span class="welcome-badge">
+            <span>🏫</span> {{ current_user.departments|join(', ') if current_user.departments is iterable and current_user.departments is not string else current_user.departments }}
+          </span>
+          {% endif %}
+          <span class="welcome-badge" id="live-date-badge">
+            <span>📅</span> <span id="current-date-text">Academic Session</span>
+          </span>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a href="{{ url_for('create_assignment') }}" class="btn btn-primary btn-sm">+ New Assignment</a>
+        <a href="{{ url_for('create_quiz') }}" class="btn btn-outline btn-sm" style="background:white;">+ Create Quiz</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Faculty Key Management KPI Cards -->
+<div class="quick-cards-grid">
+  <!-- Pending Doubts -->
+  <div class="stat-card bg-gradient-1">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="stat-label">Pending Student Doubts</div>
+      <span style="font-size:1.5rem; opacity:0.8;">❓</span>
+    </div>
+    <div class="stat-value">{{ stats.pending_doubts_count }}</div>
+    <div style="font-size:0.85rem; margin-top:14px; opacity:0.9;">
+      {% if stats.pending_doubts_count > 0 %}
+        {{ stats.pending_doubts_count }} student question(s) awaiting your response
+      {% else %}
+        All student doubts have been answered
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Active Assignments & Submissions -->
+  <div class="stat-card bg-gradient-2">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="stat-label">Assignments & Submissions</div>
+      <span style="font-size:1.5rem; opacity:0.8;">📋</span>
+    </div>
+    <div class="stat-value">{{ stats.total_assignments_count }} <span style="font-size:1.1rem; font-weight:400; opacity:0.85;">({{ stats.total_submissions_count }} submitted)</span></div>
+    <div style="font-size:0.85rem; margin-top:14px; opacity:0.9;">
+      {{ stats.total_submissions_count }} student coursework submission(s) received
+    </div>
+  </div>
+
+  <!-- Interactive Quizzes -->
+  <div class="stat-card bg-gradient-3">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="stat-label">Quizzes & Attempts</div>
+      <span style="font-size:1.5rem; opacity:0.8;">🏆</span>
+    </div>
+    <div class="stat-value">{{ stats.total_quizzes_count }} <span style="font-size:1.1rem; font-weight:400; opacity:0.85;">({{ stats.total_attempts_count }} attempts)</span></div>
+    <div style="font-size:0.85rem; margin-top:14px; opacity:0.9;">
+      {{ stats.total_attempts_count }} total student test response(s) logged
+    </div>
+  </div>
+</div>
+
+<!-- Explore & Quick Actions Section -->
+<div class="flex items-center justify-between mb-4">
+  <h3 style="font-size:1.25rem; font-weight:700;">Faculty Management Actions</h3>
+  <span style="font-size:0.85rem; color:var(--gray-500);">Quick Shortcuts</span>
+</div>
+
+<div class="quick-actions-grid">
+  <!-- Assignments -->
+  <a href="{{ url_for('create_assignment') }}" class="action-card">
+    <div class="action-icon amber">📋</div>
+    <div class="action-info">
+      <h4>Create Assignment</h4>
+      <p>Post coursework, set deadlines & attach files</p>
+    </div>
+  </a>
+
+  <!-- Quizzes -->
+  <a href="{{ url_for('create_quiz') }}" class="action-card">
+    <div class="action-icon blue">🏆</div>
+    <div class="action-info">
+      <h4>Create Quiz</h4>
+      <p>Build online tests & view student scores</p>
+    </div>
+  </a>
+
+  <!-- Doubts -->
+  <a href="{{ url_for('doubts') }}" class="action-card">
+    <div class="action-icon rose">❓</div>
+    <div class="action-info">
+      <h4>Student Doubts</h4>
+      <p>Review & answer student academic questions</p>
+    </div>
+  </a>
+
+  <!-- Notices -->
+  <a href="{{ url_for('create_notice') }}" class="action-card">
+    <div class="action-icon cyan">📢</div>
+    <div class="action-info">
+      <h4>Publish Notice</h4>
+      <p>Post announcements with PDF or image attachments</p>
+    </div>
+  </a>
+
+  <!-- Notes -->
+  <a href="{{ url_for('upload_note') }}" class="action-card">
+    <div class="action-icon purple">📖</div>
+    <div class="action-info">
+      <h4>Upload Notes</h4>
+      <p>Share lecture slides, PDFs & syllabus units</p>
+    </div>
+  </a>
+
+  <!-- Profile -->
+  <a href="{{ url_for('profile') }}" class="action-card">
+    <div class="action-icon indigo">👤</div>
+    <div class="action-info">
+      <h4>Faculty Profile</h4>
+      <p>Update designation, departments & bio</p>
+    </div>
+  </a>
+</div>
+
+<!-- Data Columns: Pending Doubts & Assignments -->
+<div class="grid-2 mb-8">
+
+  <!-- Pending Doubts Card -->
+  <div class="card">
+    <div class="card-header">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:1.2rem;">❓</span>
+        <h3 class="card-title" style="margin:0;">Pending Student Doubts</h3>
+      </div>
+      <a href="{{ url_for('doubts') }}" class="btn btn-ghost btn-sm">All Doubts →</a>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      {% if stats.pending_doubts %}
+        {% for doubt in stats.pending_doubts %}
+          <div style="padding:12px 14px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:var(--radius-md);">
+            <div style="font-weight:600; font-size:0.95rem; color:var(--gray-900);">{{ doubt.question }}</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:0.8rem; color:var(--gray-500); flex-wrap:wrap; gap:6px;">
+              <span>👤 Asked by <strong>{{ doubt.asker_name }}</strong> {% if doubt.department %}• {{ doubt.department }}{% endif %}</span>
+              <a href="{{ url_for('doubts') }}" class="btn btn-primary btn-xs">Answer →</a>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-state-icon">🎉</div>
+          <div class="empty-state-title">No Pending Doubts!</div>
+          <p class="empty-state-desc">You are all caught up with student questions. New questions will appear here.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Active Assignments Card -->
+  <div class="card">
+    <div class="card-header">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:1.2rem;">📋</span>
+        <h3 class="card-title" style="margin:0;">My Active Assignments</h3>
+      </div>
+      <a href="{{ url_for('assignments') }}" class="btn btn-ghost btn-sm">All Assignments →</a>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      {% if stats.assignments %}
+        {% for a in stats.assignments[:4] %}
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:var(--gray-50); border-radius:var(--radius-md); border:1px solid var(--gray-200); flex-wrap:wrap; gap:10px;">
+            <div>
+              <div style="font-weight:600; font-size:0.95rem; color:var(--gray-900);">{{ a.title }}</div>
+              <div style="font-size:0.8rem; color:var(--gray-500); margin-top:2px;">
+                <span style="color:var(--primary); font-weight:500;">{{ a.subject or 'General' }}</span>
+                {% if a.deadline %} • ⏰ Due: {{ a.deadline }}{% endif %}
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="badge badge-blue" style="font-size:0.75rem;">{{ a.submissions_count }} submitted</span>
+              <a href="{{ url_for('view_assignment_submissions', assignment_id=a.id) }}" class="btn btn-outline btn-xs">Submissions</a>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-state-icon">📋</div>
+          <div class="empty-state-title">No Assignments Created</div>
+          <p class="empty-state-desc">You haven't created any assignments yet. Post assignments for your classes.</p>
+          <a href="{{ url_for('create_assignment') }}" class="btn btn-outline btn-sm">+ Create Assignment</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Quizzes Management Card -->
+<div class="card mb-8">
+  <div class="card-header">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="font-size:1.2rem;">🏆</span>
+      <h3 class="card-title" style="margin:0;">Online Quizzes & Assessments</h3>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <a href="{{ url_for('create_quiz') }}" class="btn btn-primary btn-sm">+ Create Quiz</a>
+      <a href="{{ url_for('quizzes') }}" class="btn btn-ghost btn-sm">All Quizzes →</a>
+    </div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:12px;">
+    {% if stats.quizzes %}
+      {% for q in stats.quizzes[:4] %}
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:var(--gray-50); border-radius:var(--radius-md); border:1px solid var(--gray-200); flex-wrap:wrap; gap:10px;">
+          <div>
+            <div style="font-weight:600; font-size:0.95rem; color:var(--gray-900);">
+              {{ q.title }}
+              <span class="badge badge-{{ 'green' if q.is_active else 'gray' }}" style="margin-left:6px; font-size:0.7rem;">
+                {{ 'Active' if q.is_active else 'Inactive' }}
+              </span>
+            </div>
+            <div style="font-size:0.8rem; color:var(--gray-500); margin-top:2px;">
+              {{ q.questions_count }} question(s) {% if q.department %}• {{ q.department }}{% endif %}
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span class="badge badge-purple" style="font-size:0.75rem;">{{ q.attempts_count }} student attempt(s)</span>
+            <a href="{{ url_for('view_quiz_results', quiz_id=q.id) }}" class="btn btn-outline btn-xs">View Results</a>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:28px 20px;">
+        <div class="empty-state-icon">🏆</div>
+        <div class="empty-state-title">No Quizzes Created Yet</div>
+        <p class="empty-state-desc">Create your first quiz to assess student comprehension and track live marks.</p>
+        <a href="{{ url_for('create_quiz') }}" class="btn btn-outline btn-sm">+ Build First Quiz</a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const hour = new Date().getHours();
+    let greeting = 'day';
+    if (hour < 12) greeting = 'morning';
+    else if (hour < 17) greeting = 'afternoon';
+    else greeting = 'evening';
+
+    const greetEl = document.getElementById('greeting-time');
+    if (greetEl) greetEl.innerText = greeting;
+
+    const dateEl = document.getElementById('current-date-text');
+    if (dateEl) {
+      const now = new Date();
+      const options = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
+      dateEl.innerText = now.toLocaleDateString(undefined, options);
+    }
+  });
+</script>
+
+{% endblock %}

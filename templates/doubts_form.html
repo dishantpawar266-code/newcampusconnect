@@ -14,26 +14,24 @@
           <label class="form-label">Ask <span class="required">*</span></label>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
             {% for f in faculty_list %}
-              <label style="display:flex;align-items:center;gap:10px;padding:12px;border:2px solid var(--gray-200);border-radius:var(--border-radius-sm);cursor:pointer;transition:all .2s;font-size:14px"
-                     class="recipient-opt" onclick="selectRecipient('{{ f.id }}','{{ f.name }}','faculty')">
-                <input type="radio" name="_target" value="{{ f.id }}" style="display:none" />
+              <div style="display:flex;align-items:center;gap:10px;padding:12px;border:2px solid var(--gray-200);border-radius:var(--border-radius-sm);cursor:pointer;transition:all .2s;font-size:14px"
+                   class="recipient-opt" data-uid="{{ f.id }}" data-name="{{ f.name }}" data-type="faculty" onclick="selectRecipient(this)">
                 <span style="font-size:20px">👨‍🏫</span>
                 <span>
                   <strong>{{ f.name }}</strong><br/>
                   <small style="color:var(--gray-500)">{{ f.designation or 'Faculty' }}</small>
                 </span>
-              </label>
+              </div>
             {% endfor %}
             {% for c in club_list %}
-              <label style="display:flex;align-items:center;gap:10px;padding:12px;border:2px solid var(--gray-200);border-radius:var(--border-radius-sm);cursor:pointer;transition:all .2s;font-size:14px"
-                     class="recipient-opt" onclick="selectRecipient('{{ c.id }}','{{ c.club_name or c.name }}','club')">
-                <input type="radio" name="_target" value="{{ c.id }}" style="display:none" />
+              <div style="display:flex;align-items:center;gap:10px;padding:12px;border:2px solid var(--gray-200);border-radius:var(--border-radius-sm);cursor:pointer;transition:all .2s;font-size:14px"
+                   class="recipient-opt" data-uid="{{ c.id }}" data-name="{{ c.club_name or c.name }}" data-type="club" onclick="selectRecipient(this)">
                 <span style="font-size:20px">🏛️</span>
                 <span>
                   <strong>{{ c.club_name or c.name }}</strong><br/>
                   <small style="color:var(--gray-500)">{{ c.club_category or 'Club' }}</small>
                 </span>
-              </label>
+              </div>
             {% endfor %}
             {% if not faculty_list and not club_list %}
               <div class="empty-state" style="padding:24px;grid-column:1/-1">
@@ -75,16 +73,19 @@
 
 {% block extra_scripts %}
 <script>
-function selectRecipient(uid, name, type) {
+function selectRecipient(element) {
+  var uid = element.getAttribute('data-uid');
+  var name = element.getAttribute('data-name');
+  var type = element.getAttribute('data-type');
   document.getElementById('target-uid').value = uid;
   document.getElementById('target-name').value = name;
   document.getElementById('target-type').value = type;
-  document.querySelectorAll('.recipient-opt').forEach(el => {
+  document.querySelectorAll('.recipient-opt').forEach(function(el) {
     el.style.borderColor = 'var(--gray-200)';
     el.style.background = '';
   });
-  event.currentTarget.style.borderColor = 'var(--primary-500)';
-  event.currentTarget.style.background = 'var(--primary-50)';
+  element.style.borderColor = 'var(--primary-500)';
+  element.style.background = 'var(--primary-50)';
 }
 </script>
 {% endblock %}

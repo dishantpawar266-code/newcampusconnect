@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Quiz Results: {{ quiz.title }} — Campus Connect{% endblock %}
+{% block page_title %}Quiz Results{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Assessment Results: {{ quiz.title }}</h1>
+    <p class="page-subtitle">
+      Department: {{ quiz.department or 'All Departments' }} · Posted on {{ quiz.created_at }} ·
+      <span class="badge badge-{{ 'green' if quiz.is_active else 'gray' }}" style="display:inline-block;margin-left:4px;">
+        {{ 'Active' if quiz.is_active else 'Inactive' }}
+      </span>
+    </p>
+  </div>
+  <div style="display:flex;gap:10px;">
+    <a href="{{ url_for('quizzes') }}" class="btn btn-secondary">← Back to Quizzes</a>
+  </div>
+</div>
+
+{% if results %}
+  <!-- Overview Metrics -->
+  {% set total_score_sum = results|sum(attribute='score') %}
+  {% set avg_score = (total_score_sum / results|length) if results|length > 0 else 0 %}
+  {% set max_score = results|map(attribute='score')|max if results|length > 0 else 0 %}
+
+  <div class="quick-cards-grid" style="margin-bottom:24px;">
+    <div class="stat-card bg-gradient-1">
+      <div class="stat-label">Total Student Attempts</div>
+      <div class="stat-value">{{ results|length }}</div>
+      <div style="font-size:0.85rem;margin-top:8px;opacity:0.9;">Submissions logged in real-time</div>
+    </div>
+    <div class="stat-card bg-gradient-2">
+      <div class="stat-label">Average Score</div>
+      <div class="stat-value">{{ "%.1f"|format(avg_score) }}</div>
+      <div style="font-size:0.85rem;margin-top:8px;opacity:0.9;">Class-wide performance average</div>
+    </div>
+    <div class="stat-card bg-gradient-3">
+      <div class="stat-label">Highest Score</div>
+      <div class="stat-value">{{ max_score }}</div>
+      <div style="font-size:0.85rem;margin-top:8px;opacity:0.9;">Top score recorded</div>
+    </div>
+  </div>
+
+  <!-- Student Submissions Table -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Student Submissions & Marks ({{ results|length }})</span>
+    </div>
+    <div class="card-body" style="padding:0;overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;text-align:left;font-size:14px;">
+        <thead>
+          <tr style="border-bottom:1.5px solid var(--gray-200);background:var(--gray-50);color:var(--gray-600);font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">
+            <th style="padding:14px 20px;">Student Name</th>
+            <th style="padding:14px 16px;">Roll Number</th>
+            <th style="padding:14px 16px;">Department</th>
+            <th style="padding:14px 16px;">Score</th>
+            <th style="padding:14px 16px;">Percentage</th>
+            <th style="padding:14px 16px;">Submitted At</th>
+            <th style="padding:14px 20px;text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in results %}
+            <tr style="border-bottom:1px solid var(--gray-100);transition:background .15s;">
+              <td style="padding:14px 20px;font-weight:600;color:var(--gray-900);">
+                {{ r.student_name }}
+              </td>
+              <td style="padding:14px 16px;color:var(--gray-600);">
+                {{ r.student_roll }}
+              </td>
+              <td style="padding:14px 16px;color:var(--gray-600);">
+                {{ r.student_department }}
+              </td>
+              <td style="padding:14px 16px;font-weight:700;color:var(--gray-900);">
+                {{ r.score }} / {{ r.total }}
+              </td>
+              <td style="padding:14px 16px;">
+                <span class="badge badge-{{ 'green' if r.percentage >= 70 else 'yellow' if r.percentage >= 40 else 'red' }}">
+                  {{ r.percentage }}%
+                </span>
+              </td>
+              <td style="padding:14px 16px;color:var(--gray-500);font-size:13px;">
+                {{ r.submitted_at }}
+              </td>
+              <td style="padding:14px 20px;text-align:right;">
+                <a href="{{ url_for('quiz_result', quiz_id=quiz.id, student_uid=r.student_uid) }}" class="btn btn-outline btn-xs">
+                  Review Answers →
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+{% else %}
+  <div class="card">
+    <div class="empty-state">
+      <div class="empty-state-icon">📝</div>
+      <div class="empty-state-title">No Student Submissions Yet</div>
+      <div class="empty-state-text">
+        None of your students have submitted this quiz yet. As students complete the quiz, their scores and answers will appear here in real-time.
+      </div>
+      <a href="{{ url_for('quizzes') }}" class="btn btn-secondary" style="margin-top:16px;">← Back to Quizzes</a>
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}

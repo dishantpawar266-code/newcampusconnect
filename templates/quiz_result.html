@@ -3,51 +3,62 @@
 {% block page_title %}Quiz Result{% endblock %}
 {% block content %}
 
-<div style="max-width:720px">
+<div style="max-width:760px">
   {% if result %}
     <!-- Score Card -->
+    {% set pct = ((result.score / result.total * 100) if result.total else 0) | int %}
     <div class="card" style="margin-bottom:24px;text-align:center;overflow:hidden">
-      <div style="background:{% if result.score / result.total >= 0.7 %}linear-gradient(135deg,#15803d,#166534){% elif result.score / result.total >= 0.4 %}linear-gradient(135deg,#d97706,#b45309){% else %}linear-gradient(135deg,#dc2626,#b91c1c){% endif %};color:#fff;padding:40px 24px">
-        <div style="font-size:64px;font-weight:800;font-family:var(--font-display);margin-bottom:8px">
-          {{ result.score }}/{{ result.total }}
+      <div style="background:{% if pct >= 70 %}linear-gradient(135deg,#15803d,#166534){% elif pct >= 40 %}linear-gradient(135deg,#d97706,#b45309){% else %}linear-gradient(135deg,#dc2626,#b91c1c){% endif %};color:#fff;padding:36px 24px">
+        <div style="font-size:56px;font-weight:800;font-family:var(--font-display);margin-bottom:6px">
+          {{ result.score }} / {{ result.total }}
         </div>
         <div style="font-size:18px;font-weight:600;margin-bottom:4px">
-          {% set pct = (result.score / result.total * 100) | int %}
-          {% if pct >= 70 %}🎉 Excellent work!
-          {% elif pct >= 40 %}👍 Good effort!
-          {% else %}📚 Keep studying!
+          {% if pct >= 70 %}🎉 Excellent Work!
+          {% elif pct >= 40 %}👍 Good Effort!
+          {% else %}📚 Keep Practicing!
           {% endif %}
         </div>
-        <div style="opacity:.8;font-size:14px">{{ pct }}% score · {{ result.quiz_title }}</div>
+        <div style="opacity:.85;font-size:14px">{{ pct }}% Score · {{ quiz.title or 'Assessment' }}</div>
       </div>
       <div class="card-body">
-        <div class="progress-bar" style="margin-bottom:16px">
-          <div class="progress-fill" style="width:{{ pct }}%"></div>
+        <div class="progress-bar" style="margin-bottom:14px;background:var(--gray-200);height:10px;border-radius:6px;overflow:hidden;">
+          <div class="progress-fill" style="width:{{ pct }}%;background:var(--primary);height:100%;"></div>
         </div>
-        <div style="font-size:13px;color:var(--gray-500)">
-          Submitted on {{ result.submitted_at[:10] if result.submitted_at else 'N/A' }}
+        <div style="font-size:13px;color:var(--gray-500);display:flex;justify-content:space-between;">
+          <span>Student: <strong>{{ result.student_name or 'You' }}</strong></span>
+          <span>Submitted on: {{ result.submitted_at or 'Recently' }}</span>
         </div>
       </div>
     </div>
 
-    <!-- Answer Review -->
+    <!-- Detailed Answer Review -->
     <div class="card">
       <div class="card-header">
-        <span class="card-title">Answer Review</span>
+        <span class="card-title">Detailed Answer Review</span>
       </div>
       <div class="card-body" style="padding:0">
-        {% for i, ans in enumerate(result.answers) %}
+        {% for ans in result.answers %}
           <div style="padding:16px 24px;border-bottom:1px solid var(--gray-100);{% if loop.last %}border-bottom:none{% endif %}">
-            <div style="font-weight:600;font-size:14px;color:var(--gray-800);margin-bottom:8px">
-              Q{{ i+1 }}. {{ ans.question }}
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+              <div style="font-weight:700;font-size:15px;color:var(--gray-900);">
+                Q{{ loop.index }}. {{ ans.question }}
+              </div>
+              <span class="badge badge-{{ 'green' if ans.is_correct else 'red' }}" style="font-size:0.75rem;">
+                {{ '+' ~ ans.marks ~ ' Mark' if ans.is_correct else '0 Marks' }}
+              </span>
             </div>
-            <div style="display:flex;flex-direction:column;gap:6px;font-size:13px">
-              <div style="color:{% if ans.is_correct %}#15803d{% else %}#dc2626{% endif %}">
-                {% if ans.is_correct %}✓{% else %}✕{% endif %}
-                Your answer: Option {{ (ans.selected | int) + 1 if ans.selected != '' else 'Not answered' }}
+
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;margin-top:6px;">
+              <div style="color:{% if ans.is_correct %}#15803d{% else %}#dc2626{% endif %};font-weight:600;">
+                {% if ans.is_correct %}✓ Correct Answer{% else %}✕ Incorrect Answer{% endif %}
+                <span style="font-weight:400;margin-left:6px;color:var(--gray-700);">
+                  Selected: Option {{ ['A','B','C','D'][(ans.selected|int)] if ans.selected != '' and (ans.selected|int) < 4 else (ans.selected|int + 1) if ans.selected != '' else 'None' }}
+                </span>
               </div>
               {% if not ans.is_correct %}
-                <div style="color:#15803d">✓ Correct: Option {{ (ans.correct | int) + 1 }}</div>
+                <div style="color:#15803d;font-weight:500;">
+                  ✓ Correct Option: Option {{ ['A','B','C','D'][(ans.correct|int)] if (ans.correct|int) < 4 else (ans.correct|int + 1) }}
+                </div>
               {% endif %}
             </div>
           </div>
@@ -55,15 +66,15 @@
       </div>
     </div>
 
-    <div style="margin-top:20px">
+    <div style="margin-top:20px;margin-bottom:40px;">
       <a href="{{ url_for('quizzes') }}" class="btn btn-secondary">← Back to Quizzes</a>
     </div>
   {% else %}
     <div class="card">
       <div class="empty-state">
         <div class="empty-state-icon">📝</div>
-        <div class="empty-state-title">No result found.</div>
-        <div class="empty-state-text">You haven't attempted this quiz yet.</div>
+        <div class="empty-state-title">No Result Found</div>
+        <div class="empty-state-text">You have not attempted this quiz yet or the quiz is still pending.</div>
         <a href="{{ url_for('quizzes') }}" class="btn btn-primary" style="margin-top:16px">Go to Quizzes</a>
       </div>
     </div>

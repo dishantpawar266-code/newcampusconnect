@@ -3,36 +3,42 @@
 {% block page_title %}{{ quiz.title }}{% endblock %}
 {% block content %}
 
-<div style="max-width:720px">
-  <div class="card" style="margin-bottom:16px">
-    <div class="card-body" style="padding:16px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+<div style="max-width:760px">
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-body" style="padding:20px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <div>
-        <div style="font-weight:700;font-size:16px">{{ quiz.title }}</div>
-        <div style="font-size:13px;color:var(--gray-500)">
-          {{ quiz.questions | length }} question(s) · by {{ quiz.creator_name }}
-          {% if quiz.department %} · {{ quiz.department }}{% endif %}
+        <div style="font-weight:700;font-size:1.2rem;color:var(--gray-900);">{{ quiz.title }}</div>
+        <div style="font-size:0.85rem;color:var(--gray-500);margin-top:4px;">
+          {{ quiz.questions | length }} Question(s) · Created by <strong>{{ quiz.creator_name }}</strong>
+          {% if quiz.department %} · 🏢 {{ quiz.department }}{% endif %}
         </div>
       </div>
-      <span class="badge badge-green">Active</span>
+      <span class="badge badge-green" style="font-size:0.8rem;padding:6px 12px;">Active Assessment</span>
     </div>
   </div>
 
   <form method="POST" action="{{ url_for('attempt_quiz', quiz_id=quiz.id) }}"
-        data-confirm="Submit quiz? You cannot change answers afterwards.">
-    {% for i, q in enumerate(quiz.questions) %}
-      <div class="card" style="margin-bottom:16px">
+        data-confirm="Submit your quiz answers? You will receive instant marks and results.">
+    {% for q in quiz.questions %}
+      {% set q_idx = loop.index0 %}
+      <div class="card" style="margin-bottom:18px">
         <div class="card-body">
-          <div style="font-weight:700;color:var(--gray-800);margin-bottom:4px">
-            Q{{ i+1 }}. {{ q.question }}
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+            <div style="font-weight:700;color:var(--gray-900);font-size:1.05rem;">
+              Q{{ loop.index }}. {{ q.question }}
+            </div>
+            <span class="badge badge-blue" style="font-size:0.75rem;">{{ q.marks }} mark(s)</span>
           </div>
-          <div style="font-size:12px;color:var(--gray-400);margin-bottom:16px">{{ q.marks }} mark(s)</div>
-          <div style="display:flex;flex-direction:column;gap:10px">
-            {% for j, opt in enumerate(q.options) %}
+
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px;">
+            {% for opt in q.options %}
+              {% set opt_idx = loop.index0 %}
               {% if opt %}
-                <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid var(--gray-200);border-radius:var(--border-radius-sm);cursor:pointer;transition:all .15s;font-size:14px"
+                <label style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1.5px solid var(--gray-200);border-radius:var(--radius-md);cursor:pointer;transition:all .15s;font-size:14px"
                        class="quiz-option">
-                  <input type="radio" name="q_{{ i }}" value="{{ j }}" required />
-                  <span>{{ opt }}</span>
+                  <input type="radio" name="q_{{ q_idx }}" value="{{ opt_idx }}" required />
+                  <span style="font-weight:600;color:var(--gray-500);min-width:20px;">{{ ['A', 'B', 'C', 'D'][opt_idx] if opt_idx < 4 else opt_idx+1 }}.</span>
+                  <span style="color:var(--gray-800);">{{ opt }}</span>
                 </label>
               {% endif %}
             {% endfor %}
@@ -41,9 +47,9 @@
       </div>
     {% endfor %}
 
-    <div style="display:flex;gap:12px">
+    <div style="display:flex;gap:12px;margin-top:24px;margin-bottom:40px;">
       <button type="submit" class="btn btn-primary btn-lg">✓ Submit Quiz</button>
-      <a href="{{ url_for('quizzes') }}" class="btn btn-secondary">Cancel</a>
+      <a href="{{ url_for('quizzes') }}" class="btn btn-secondary btn-lg">Cancel</a>
     </div>
   </form>
 </div>
@@ -52,7 +58,6 @@
 
 {% block extra_scripts %}
 <script>
-  // Highlight selected options
   document.querySelectorAll('.quiz-option input[type="radio"]').forEach(radio => {
     radio.addEventListener('change', () => {
       const group = radio.closest('.card').querySelectorAll('.quiz-option');
@@ -60,8 +65,8 @@
         opt.style.borderColor = 'var(--gray-200)';
         opt.style.background = '';
       });
-      radio.closest('.quiz-option').style.borderColor = 'var(--primary-500)';
-      radio.closest('.quiz-option').style.background = 'var(--primary-50)';
+      radio.closest('.quiz-option').style.borderColor = 'var(--primary)';
+      radio.closest('.quiz-option').style.background = 'var(--primary-light)';
     });
   });
 </script>

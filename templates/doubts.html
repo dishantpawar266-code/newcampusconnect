@@ -29,6 +29,9 @@
               <span class="meta-item">🎓 {{ doubt.asker_name }}</span>
               <span class="meta-item">→ {{ doubt.target_name }}</span>
               <span class="meta-item">📅 {{ doubt.created_at[:10] if doubt.created_at else '' }}</span>
+              {% if doubt.department %}
+                <span class="meta-item">🏢 {{ doubt.department }}</span>
+              {% endif %}
             </div>
           </div>
         </div>
@@ -36,7 +39,7 @@
         {% if doubt.answer %}
           <div style="margin-top:14px;padding:14px;background:var(--gray-50);border-radius:var(--border-radius-sm);border-left:3px solid #22c55e">
             <div style="font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:6px">ANSWER</div>
-            <div style="font-size:14px;color:var(--gray-700)">{{ doubt.answer }}</div>
+            <div style="font-size:14px;color:var(--gray-700);line-height:1.5">{{ doubt.answer }}</div>
             <div style="font-size:11px;color:var(--gray-400);margin-top:6px">
               Answered by {{ doubt.target_name }}
               {% if doubt.answered_at %} on {{ doubt.answered_at[:10] }}{% endif %}
@@ -44,16 +47,16 @@
           </div>
         {% endif %}
 
-        {% if current_user.role in ('faculty', 'club') and not doubt.answered and doubt.target_uid == current_user.uid %}
-          <div style="margin-top:14px">
+        {% if current_user.role in ('faculty', 'club') and not doubt.answered and (doubt.target_uid == current_user.uid or doubt.target_uid == current_user.id) %}
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--gray-100)">
             <form method="POST" action="{{ url_for('answer_doubt', doubt_id=doubt.id) }}"
                   style="display:flex;gap:10px;align-items:flex-end">
               <div class="form-group" style="flex:1;margin-bottom:0">
-                <label class="form-label">Your Answer</label>
+                <label class="form-label">Your Response to Student</label>
                 <textarea name="answer" class="form-control" rows="3"
-                          placeholder="Type your answer here..." required></textarea>
+                          placeholder="Type your response here..." required></textarea>
               </div>
-              <button type="submit" class="btn btn-success">✓ Answer</button>
+              <button type="submit" class="btn btn-success" style="align-self:flex-end;white-space:nowrap">✓ Send Answer</button>
             </form>
           </div>
         {% endif %}

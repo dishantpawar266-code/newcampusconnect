@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from models import (
-    db, User, Notice, Assignment, UploadedFile, Note, Doubt,
+    db, User, Notice, Assignment, AssignmentSubmission, UploadedFile, Note, NoteShare, Doubt,
     Quiz, QuizResult, Conversation, Message, StudySession,
     Task, ExamReminder, LoginLog, ActivityLog, init_db_and_migrate
 )
@@ -116,7 +116,7 @@ DEPARTMENTS = [
     "Electrical Engineering",
 ]
 
-ALLOWED_FILE_EXTENSIONS = {"txt", "ppt", "pptx", "jpg", "jpeg", "png", "webp"}
+ALLOWED_FILE_EXTENSIONS = {"pdf", "txt", "doc", "docx", "ppt", "pptx", "jpg", "jpeg", "png", "webp"}
 MAX_FILE_SIZE_MB = 10
 
 # ---------------------------------------------------------------------------
@@ -275,6 +275,8 @@ def inject_globals():
         "current_user": get_current_user(),
         "firebase_config": firebase_web_config(),
         "departments": DEPARTMENTS,
+        "enumerate": enumerate,
+        "len": len,
     }
 
 # ===========================================================================
@@ -441,10 +443,11 @@ def serve_file(file_id):
             category="Files",
             details=f"Accessed shared file: {file_record.filename}"
         )
+    as_download = request.args.get("download") == "1"
     return send_file(
         io.BytesIO(file_record.data),
         mimetype=file_record.content_type,
-        as_attachment=False,
+        as_attachment=as_download,
         download_name=file_record.filename
     )
 
@@ -460,6 +463,113 @@ def dashboard():
         return redirect(url_for("admin_dashboard"))
     
     uid = session["uid"]
+    
+    # -----------------------------------------------------------------------
+    # FACULTY DASHBOARD (Role-specific management)
+    # -----------------------------------------------------------------------
+    if role == "faculty":
+        try:
+            pending_doubts = Doubt.query.filter_by(target_uid=uid, answered=False).order_by(Doubt.created_at.desc()).all()
+            my_assignments = Assignment.query.filter_by(author_uid=uid).order_by(Assignment.created_at.desc()).all()
+            
+            assignments_data = []
+            for a in my_assignments:
+                sub_count = AssignmentSubmission.query.filter_by(assignment_id=a.id).count()
+                assignments_data.append({
+                    "id": a.id, "title": a.title, "subject": a.subject, "department": a.department,
+                    "deadline": a.deadline, "file_id": a.file_id, "file_name": a.file_name,
+                    "submissions_count": sub_count,
+                    "created_at": a.created_at.isoformat() if a.created_at else ""
+                })
+                
+            my_quizzes = Quiz.query.filter_by(creator_uid=uid).order_by(Quiz.created_at.desc()).all()
+            quizzes_data = []
+            for q in my_quizzes:
+                q_count = 0
+                try:
+                    q_count = len(json.loads(q.questions)) if q.questions else 0
+                except Exception:
+                    pass
+                att_count = QuizResult.query.filter_by(quiz_id=q.id).count()
+                quizzes_data.append({
+                    "id": q.id, "title": q.title, "department": q.department,
+                    "questions_count": q_count, "attempts_count": att_count,
+                    "is_active": q.is_active,
+                    "created_at": q.created_at.isoformat() if q.created_at else ""
+                })
+                
+            my_notices = Notice.query.filter_by(author_uid=uid).order_by(Notice.created_at.desc()).all()
+            notices_data = [{
+                "id": n.id, "title": n.title, "content": n.content, "department": n.department,
+                "file_id": n.file_id, "file_name": n.file_name, "file_type": n.file_type,
+                "created_at": n.created_at.isoformat() if n.created_at else ""
+            } for n in my_notices]
+            
+            my_notes = Note.query.filter_by(uploader_uid=uid).order_by(Note.created_at.desc()).all()
+            notes_data = [{
+                "id": nt.id, "title": nt.title, "subject": nt.subject, "department": nt.department,
+                "file_name": nt.file_name, "visibility": nt.visibility,
+                "created_at": nt.created_at.isoformat() if nt.created_at else ""
+            } for nt in my_notes]
+            
+            doubts_data = [{
+                "id": d.id, "question": d.question, "asker_name": d.asker_name,
+                "department": d.department, "created_at": d.created_at.isoformat() if d.created_at else ""
+            } for d in pending_doubts]
+            
+            faculty_stats = {
+                "pending_doubts_count": len(pending_doubts),
+                "total_assignments_count": len(my_assignments),
+                "total_submissions_count": sum(a["submissions_count"] for a in assignments_data),
+                "total_quizzes_count": len(my_quizzes),
+                "total_attempts_count": sum(q["attempts_count"] for q in quizzes_data),
+                "total_notices_count": len(my_notices),
+                "total_notes_count": len(my_notes),
+                "pending_doubts": doubts_data[:5],
+                "assignments": assignments_data,
+                "quizzes": quizzes_data,
+                "notices": notices_data[:5],
+                "notes": notes_data[:5]
+            }
+            return render_template("faculty_dashboard.html", stats=faculty_stats)
+        except Exception as e:
+            app.logger.error(f"Faculty dashboard error: {e}")
+            return render_template("faculty_dashboard.html", stats={"pending_doubts_count": 0, "total_assignments_count": 0, "total_submissions_count": 0, "total_quizzes_count": 0, "total_attempts_count": 0, "total_notices_count": 0, "total_notes_count": 0, "pending_doubts": [], "assignments": [], "quizzes": [], "notices": [], "notes": []})
+
+    # -----------------------------------------------------------------------
+    # CLUB DASHBOARD (Role-specific overview)
+    # -----------------------------------------------------------------------
+    if role == "club":
+        try:
+            my_notices = Notice.query.filter_by(author_uid=uid).order_by(Notice.created_at.desc()).all()
+            notices_data = [{
+                "id": n.id, "title": n.title, "content": n.content, "department": n.department,
+                "file_id": n.file_id, "file_name": n.file_name, "file_type": n.file_type,
+                "created_at": n.created_at.isoformat() if n.created_at else ""
+            } for n in my_notices]
+            
+            pending_doubts = Doubt.query.filter_by(target_uid=uid, answered=False).order_by(Doubt.created_at.desc()).all()
+            answered_doubts_count = Doubt.query.filter_by(target_uid=uid, answered=True).count()
+            doubts_data = [{
+                "id": d.id, "question": d.question, "asker_name": d.asker_name,
+                "department": d.department, "created_at": d.created_at.isoformat() if d.created_at else ""
+            } for d in pending_doubts]
+            
+            club_stats = {
+                "total_notices_count": len(my_notices),
+                "pending_doubts_count": len(pending_doubts),
+                "answered_doubts_count": answered_doubts_count,
+                "notices": notices_data[:5],
+                "pending_doubts": doubts_data[:5]
+            }
+            return render_template("club_dashboard.html", stats=club_stats)
+        except Exception as e:
+            app.logger.error(f"Club dashboard error: {e}")
+            return render_template("club_dashboard.html", stats={"total_notices_count": 0, "pending_doubts_count": 0, "answered_doubts_count": 0, "notices": [], "pending_doubts": []})
+
+    # -----------------------------------------------------------------------
+    # STUDENT DASHBOARD (Preserved existing implementation)
+    # -----------------------------------------------------------------------
     stats = {}
     try:
         notices = Notice.query.order_by(Notice.created_at.desc()).limit(5).all()
@@ -631,10 +741,20 @@ def notices():
     dept_filter = request.args.get("department", "")
     query = Notice.query.order_by(Notice.created_at.desc())
     if dept_filter:
-        query = query.filter_by(department=dept_filter)
+        query = query.filter((Notice.department == dept_filter) | (Notice.department == "") | (Notice.department == None))
     
     docs = query.all()
-    items = [{"id": d.id, "title": d.title, "content": d.content, "department": d.department, "author_name": d.author_name, "author_uid": d.author_uid, "created_at": d.created_at.isoformat() if d.created_at else ""} for d in docs]
+    items = []
+    for d in docs:
+        file_url = url_for("serve_file", file_id=d.file_id) if d.file_id else ""
+        items.append({
+            "id": d.id, "title": d.title, "content": d.content, "department": d.department,
+            "author_name": d.author_name, "author_uid": d.author_uid, "author_role": d.author_role,
+            "category": d.category or "academic",
+            "file_id": d.file_id, "file_name": d.file_name, "file_type": d.file_type,
+            "file_url": file_url,
+            "created_at": d.created_at.isoformat() if d.created_at else ""
+        })
     return render_template("notices.html", notices=items, departments=DEPARTMENTS)
 
 @app.route("/notices/create", methods=["GET", "POST"])
@@ -650,6 +770,37 @@ def create_notice():
             flash("Title and content are required.", "danger")
             return render_template("notices_form.html", departments=DEPARTMENTS)
             
+        file = request.files.get("file")
+        file_id = None
+        file_name = None
+        file_type = None
+        
+        if file and file.filename:
+            if not allowed_file(file.filename):
+                flash("File type not allowed. Please upload PDF, images, or documents.", "danger")
+                return render_template("notices_form.html", departments=DEPARTMENTS)
+            file_data = file.read()
+            if len(file_data) > MAX_FILE_SIZE_MB * 1024 * 1024:
+                flash(f"File too large. Maximum size is {MAX_FILE_SIZE_MB}MB.", "danger")
+                return render_template("notices_form.html", departments=DEPARTMENTS)
+            try:
+                ext = file.filename.rsplit(".", 1)[1].lower()
+                uploaded_file = UploadedFile(
+                    filename=file.filename,
+                    content_type=file.content_type,
+                    data=file_data
+                )
+                db.session.add(uploaded_file)
+                db.session.flush()
+                file_id = uploaded_file.id
+                file_name = file.filename
+                file_type = ext
+            except Exception as e:
+                app.logger.error(f"Notice file upload error: {e}")
+                db.session.rollback()
+                flash("Failed to upload notice attachment.", "danger")
+                return render_template("notices_form.html", departments=DEPARTMENTS)
+
         notice = Notice(
             title=title,
             content=content,
@@ -657,7 +808,10 @@ def create_notice():
             author_uid=uid,
             author_name=user.get("name", "Unknown") if user else "Unknown",
             author_role=session.get("role"),
-            category="club" if session.get("role") == "club" else "academic"
+            category="club" if session.get("role") == "club" else "academic",
+            file_id=file_id,
+            file_name=file_name,
+            file_type=file_type
         )
         db.session.add(notice)
         db.session.commit()
@@ -670,7 +824,7 @@ def create_notice():
 @role_required("faculty", "club")
 def edit_notice(notice_id):
     notice = Notice.query.get_or_404(notice_id)
-    if notice.author_uid != session["uid"]:
+    if notice.author_uid != session["uid"] and session.get("role") != "admin":
         flash("You can only edit your own notices.", "danger")
         return redirect(url_for("notices"))
         
@@ -678,19 +832,48 @@ def edit_notice(notice_id):
         notice.title = request.form.get("title", "").strip()
         notice.content = request.form.get("content", "").strip()
         notice.department = request.form.get("department", "")
+        
+        file = request.files.get("file")
+        if file and file.filename:
+            if not allowed_file(file.filename):
+                flash("File type not allowed.", "danger")
+                return render_template("notices_form.html", notice=notice, departments=DEPARTMENTS)
+            file_data = file.read()
+            if len(file_data) > MAX_FILE_SIZE_MB * 1024 * 1024:
+                flash(f"File too large. Maximum size is {MAX_FILE_SIZE_MB}MB.", "danger")
+                return render_template("notices_form.html", notice=notice, departments=DEPARTMENTS)
+            ext = file.filename.rsplit(".", 1)[1].lower()
+            uploaded_file = UploadedFile(
+                filename=file.filename,
+                content_type=file.content_type,
+                data=file_data
+            )
+            db.session.add(uploaded_file)
+            db.session.flush()
+            notice.file_id = uploaded_file.id
+            notice.file_name = file.filename
+            notice.file_type = ext
+
         notice.updated_at = datetime.now(timezone.utc)
         db.session.commit()
-        flash("Notice updated.", "success")
+        flash("Notice updated successfully.", "success")
         return redirect(url_for("notices"))
         
-    notice_dict = {"id": notice.id, "title": notice.title, "content": notice.content, "department": notice.department}
+    notice_dict = {
+        "id": notice.id, "title": notice.title, "content": notice.content,
+        "department": notice.department, "file_id": notice.file_id, "file_name": notice.file_name
+    }
     return render_template("notices_form.html", notice=notice_dict, departments=DEPARTMENTS)
 
 @app.route("/notices/<notice_id>/delete", methods=["POST"])
 @role_required("faculty", "club")
 def delete_notice(notice_id):
     notice = Notice.query.get(notice_id)
-    if notice and notice.author_uid == session["uid"]:
+    if notice and (notice.author_uid == session["uid"] or session.get("role") == "admin"):
+        if notice.file_id:
+            f = UploadedFile.query.get(notice.file_id)
+            if f:
+                db.session.delete(f)
         db.session.delete(notice)
         db.session.commit()
         flash("Notice deleted.", "success")
@@ -708,10 +891,36 @@ def assignments():
     dept_filter = request.args.get("department", "")
     query = Assignment.query.order_by(Assignment.created_at.desc())
     if dept_filter:
-        query = query.filter_by(department=dept_filter)
+        query = query.filter((Assignment.department == dept_filter) | (Assignment.department == "") | (Assignment.department == None))
         
     docs = query.all()
-    items = [{"id": d.id, "title": d.title, "description": d.description, "deadline": d.deadline, "subject": d.subject, "department": d.department, "author_name": d.author_name, "author_uid": d.author_uid, "created_at": d.created_at.isoformat() if d.created_at else ""} for d in docs]
+    uid = session.get("uid")
+    items = []
+    for d in docs:
+        file_url = url_for("serve_file", file_id=d.file_id) if d.file_id else ""
+        sub_count = AssignmentSubmission.query.filter_by(assignment_id=d.id).count()
+        my_sub = None
+        if session.get("role") == "student":
+            sub_rec = AssignmentSubmission.query.filter_by(assignment_id=d.id, student_uid=uid).first()
+            if sub_rec:
+                my_sub = {
+                    "id": sub_rec.id,
+                    "file_id": sub_rec.file_id,
+                    "file_name": sub_rec.file_name,
+                    "file_url": url_for("serve_file", file_id=sub_rec.file_id),
+                    "status": sub_rec.status,
+                    "remarks": sub_rec.remarks,
+                    "submitted_at": sub_rec.submitted_at.strftime("%b %d, %Y %H:%M") if sub_rec.submitted_at else ""
+                }
+        items.append({
+            "id": d.id, "title": d.title, "description": d.description, "deadline": d.deadline,
+            "subject": d.subject, "department": d.department, "author_name": d.author_name,
+            "author_uid": d.author_uid,
+            "file_id": d.file_id, "file_name": d.file_name, "file_type": d.file_type, "file_url": file_url,
+            "submissions_count": sub_count,
+            "my_submission": my_sub,
+            "created_at": d.created_at.isoformat() if d.created_at else ""
+        })
     return render_template("assignments.html", assignments=items, departments=DEPARTMENTS)
 
 @app.route("/assignments/create", methods=["GET", "POST"])
@@ -725,6 +934,37 @@ def create_assignment():
             flash("Title is required.", "danger")
             return render_template("assignments_form.html", departments=DEPARTMENTS)
             
+        file = request.files.get("file")
+        file_id = None
+        file_name = None
+        file_type = None
+        
+        if file and file.filename:
+            if not allowed_file(file.filename):
+                flash("File type not allowed.", "danger")
+                return render_template("assignments_form.html", departments=DEPARTMENTS)
+            file_data = file.read()
+            if len(file_data) > MAX_FILE_SIZE_MB * 1024 * 1024:
+                flash(f"File too large. Maximum size is {MAX_FILE_SIZE_MB}MB.", "danger")
+                return render_template("assignments_form.html", departments=DEPARTMENTS)
+            try:
+                ext = file.filename.rsplit(".", 1)[1].lower()
+                uploaded_file = UploadedFile(
+                    filename=file.filename,
+                    content_type=file.content_type,
+                    data=file_data
+                )
+                db.session.add(uploaded_file)
+                db.session.flush()
+                file_id = uploaded_file.id
+                file_name = file.filename
+                file_type = ext
+            except Exception as e:
+                app.logger.error(f"Assignment file upload error: {e}")
+                db.session.rollback()
+                flash("Failed to upload assignment file.", "danger")
+                return render_template("assignments_form.html", departments=DEPARTMENTS)
+
         assignment = Assignment(
             title=title,
             description=request.form.get("description", "").strip(),
@@ -732,12 +972,15 @@ def create_assignment():
             department=request.form.get("department", ""),
             subject=request.form.get("subject", "").strip(),
             author_uid=uid,
-            author_name=user.get("name", "Unknown") if user else "Unknown"
+            author_name=user.get("name", "Unknown") if user else "Unknown",
+            file_id=file_id,
+            file_name=file_name,
+            file_type=file_type
         )
         db.session.add(assignment)
         db.session.commit()
         log_activity(session["uid"], session.get("name"), session.get("role"), "assignment_created", "Assignments", f"Created assignment: '{title}' ({assignment.subject})")
-        flash("Assignment created.", "success")
+        flash("Assignment created successfully.", "success")
         return redirect(url_for("assignments"))
     return render_template("assignments_form.html", departments=DEPARTMENTS)
 
@@ -745,7 +988,7 @@ def create_assignment():
 @role_required("faculty")
 def edit_assignment(assignment_id):
     assignment = Assignment.query.get_or_404(assignment_id)
-    if assignment.author_uid != session["uid"]:
+    if assignment.author_uid != session["uid"] and session.get("role") != "admin":
         flash("You can only edit your own assignments.", "danger")
         return redirect(url_for("assignments"))
         
@@ -755,24 +998,165 @@ def edit_assignment(assignment_id):
         assignment.deadline = request.form.get("deadline", "").strip()
         assignment.department = request.form.get("department", "")
         assignment.subject = request.form.get("subject", "").strip()
+        
+        file = request.files.get("file")
+        if file and file.filename:
+            if not allowed_file(file.filename):
+                flash("File type not allowed.", "danger")
+                return render_template("assignments_form.html", assignment=assignment, departments=DEPARTMENTS)
+            file_data = file.read()
+            if len(file_data) > MAX_FILE_SIZE_MB * 1024 * 1024:
+                flash(f"File too large. Maximum size is {MAX_FILE_SIZE_MB}MB.", "danger")
+                return render_template("assignments_form.html", assignment=assignment, departments=DEPARTMENTS)
+            ext = file.filename.rsplit(".", 1)[1].lower()
+            uploaded_file = UploadedFile(
+                filename=file.filename,
+                content_type=file.content_type,
+                data=file_data
+            )
+            db.session.add(uploaded_file)
+            db.session.flush()
+            assignment.file_id = uploaded_file.id
+            assignment.file_name = file.filename
+            assignment.file_type = ext
+            
         assignment.updated_at = datetime.now(timezone.utc)
         db.session.commit()
-        flash("Assignment updated.", "success")
+        flash("Assignment updated successfully.", "success")
         return redirect(url_for("assignments"))
         
-    assignment_dict = {"id": assignment.id, "title": assignment.title, "description": assignment.description, "deadline": assignment.deadline, "department": assignment.department, "subject": assignment.subject}
+    assignment_dict = {
+        "id": assignment.id, "title": assignment.title, "description": assignment.description,
+        "deadline": assignment.deadline, "department": assignment.department, "subject": assignment.subject,
+        "file_id": assignment.file_id, "file_name": assignment.file_name
+    }
     return render_template("assignments_form.html", assignment=assignment_dict, departments=DEPARTMENTS)
 
 @app.route("/assignments/<assignment_id>/delete", methods=["POST"])
 @role_required("faculty")
 def delete_assignment(assignment_id):
     assignment = Assignment.query.get(assignment_id)
-    if assignment and assignment.author_uid == session["uid"]:
+    if assignment and (assignment.author_uid == session["uid"] or session.get("role") == "admin"):
+        # Delete submissions
+        submissions = AssignmentSubmission.query.filter_by(assignment_id=assignment_id).all()
+        for sub in submissions:
+            if sub.file_id:
+                f = UploadedFile.query.get(sub.file_id)
+                if f:
+                    db.session.delete(f)
+            db.session.delete(sub)
+        if assignment.file_id:
+            f = UploadedFile.query.get(assignment.file_id)
+            if f:
+                db.session.delete(f)
         db.session.delete(assignment)
         db.session.commit()
-        flash("Assignment deleted.", "success")
+        flash("Assignment and all student submissions deleted.", "success")
     else:
         flash("Permission denied.", "danger")
+    return redirect(url_for("assignments"))
+
+@app.route("/assignments/<assignment_id>/submissions")
+@role_required("faculty")
+def view_assignment_submissions(assignment_id):
+    assignment = Assignment.query.get_or_404(assignment_id)
+    if assignment.author_uid != session["uid"] and session.get("role") != "admin":
+        flash("Permission denied.", "danger")
+        return redirect(url_for("assignments"))
+        
+    subs = AssignmentSubmission.query.filter_by(assignment_id=assignment_id).order_by(AssignmentSubmission.submitted_at.desc()).all()
+    submissions_data = []
+    for s in subs:
+        file_url = url_for("serve_file", file_id=s.file_id) if s.file_id else ""
+        submissions_data.append({
+            "id": s.id,
+            "student_uid": s.student_uid,
+            "student_name": s.student_name,
+            "student_roll": s.student_roll or "—",
+            "student_department": s.student_department or "—",
+            "file_name": s.file_name,
+            "file_type": s.file_type,
+            "file_url": file_url,
+            "remarks": s.remarks or "",
+            "status": s.status,
+            "submitted_at": s.submitted_at.strftime("%b %d, %Y %H:%M") if s.submitted_at else ""
+        })
+    assignment_data = {
+        "id": assignment.id, "title": assignment.title, "subject": assignment.subject,
+        "department": assignment.department, "deadline": assignment.deadline,
+        "description": assignment.description,
+        "file_name": assignment.file_name,
+        "file_url": url_for("serve_file", file_id=assignment.file_id) if assignment.file_id else ""
+    }
+    return render_template("assignment_submissions.html", assignment=assignment_data, submissions=submissions_data)
+
+@app.route("/assignments/<assignment_id>/submit", methods=["POST"])
+@role_required("student")
+def submit_assignment(assignment_id):
+    assignment = Assignment.query.get_or_404(assignment_id)
+    uid = session["uid"]
+    user = get_current_user()
+    
+    file = request.files.get("file")
+    if not file or not file.filename:
+        flash("Please select a file to submit.", "danger")
+        return redirect(url_for("assignments"))
+        
+    if not allowed_file(file.filename):
+        flash("File type not allowed.", "danger")
+        return redirect(url_for("assignments"))
+        
+    file_data = file.read()
+    if len(file_data) > MAX_FILE_SIZE_MB * 1024 * 1024:
+        flash(f"File too large. Maximum size is {MAX_FILE_SIZE_MB}MB.", "danger")
+        return redirect(url_for("assignments"))
+        
+    try:
+        ext = file.filename.rsplit(".", 1)[1].lower()
+        uploaded_file = UploadedFile(
+            filename=file.filename,
+            content_type=file.content_type,
+            data=file_data
+        )
+        db.session.add(uploaded_file)
+        db.session.flush()
+        
+        existing_sub = AssignmentSubmission.query.filter_by(assignment_id=assignment_id, student_uid=uid).first()
+        if existing_sub:
+            if existing_sub.file_id:
+                old_f = UploadedFile.query.get(existing_sub.file_id)
+                if old_f:
+                    db.session.delete(old_f)
+            existing_sub.file_id = uploaded_file.id
+            existing_sub.file_name = file.filename
+            existing_sub.file_type = ext
+            existing_sub.remarks = request.form.get("remarks", "").strip()
+            existing_sub.submitted_at = datetime.now(timezone.utc)
+            existing_sub.status = "Resubmitted"
+        else:
+            new_sub = AssignmentSubmission(
+                assignment_id=assignment_id,
+                student_uid=uid,
+                student_name=user.get("name", "Student") if user else "Student",
+                student_roll=user.get("roll_number", "") if user else "",
+                student_department=user.get("department", "") if user else "",
+                file_id=uploaded_file.id,
+                file_name=file.filename,
+                file_type=ext,
+                remarks=request.form.get("remarks", "").strip(),
+                status="Submitted",
+                submitted_at=datetime.now(timezone.utc)
+            )
+            db.session.add(new_sub)
+            
+        db.session.commit()
+        log_activity(session["uid"], session.get("name"), session.get("role"), "assignment_submitted", "Assignments", f"Submitted assignment: '{assignment.title}'")
+        flash(f"Assignment '{assignment.title}' submitted successfully!", "success")
+    except Exception as e:
+        app.logger.error(f"Assignment submission error: {e}")
+        db.session.rollback()
+        flash("Failed to submit assignment. Please try again.", "danger")
+        
     return redirect(url_for("assignments"))
 
 # ===========================================================================
@@ -782,26 +1166,72 @@ def delete_assignment(assignment_id):
 @app.route("/notes")
 @login_required
 def notes():
+    uid = session["uid"]
     dept_filter = request.args.get("department", "")
-    query = Note.query.order_by(Note.created_at.desc())
+    view_tab = request.args.get("tab", "all")
+    
+    # 1. Public notes
+    public_query = Note.query.filter_by(visibility="public").order_by(Note.created_at.desc())
     if dept_filter:
-        query = query.filter_by(department=dept_filter)
-        
-    docs = query.all()
-    items = []
-    for d in docs:
+        public_query = public_query.filter((Note.department == dept_filter) | (Note.department == "") | (Note.department == None))
+    public_notes = public_query.all()
+    
+    # 2. My notes
+    my_notes = Note.query.filter_by(uploader_uid=uid).order_by(Note.created_at.desc()).all()
+    
+    # 3. Notes shared with me
+    shared_records = NoteShare.query.filter_by(recipient_uid=uid).order_by(NoteShare.created_at.desc()).all()
+    shared_notes = []
+    for s in shared_records:
+        n = Note.query.get(s.note_id)
+        if n:
+            file_url = url_for("serve_file", file_id=n.file_id) if n.file_id else ""
+            shared_notes.append({
+                "id": n.id, "title": n.title, "subject": n.subject, "department": n.department,
+                "description": n.description, "file_url": file_url, "file_name": n.file_name,
+                "file_type": n.file_type, "uploader_name": n.uploader_name, "uploader_role": n.uploader_role,
+                "shared_by_name": s.sender_name, "shared_at": s.created_at.strftime("%b %d, %Y") if s.created_at else "",
+                "created_at": n.created_at.isoformat() if n.created_at else ""
+            })
+            
+    public_items = []
+    for d in public_notes:
         file_url = url_for("serve_file", file_id=d.file_id) if d.file_id else ""
-        items.append({
+        public_items.append({
             "id": d.id, "title": d.title, "subject": d.subject, "department": d.department,
             "description": d.description, "file_url": file_url, "file_name": d.file_name,
-            "file_type": d.file_type, "uploader_name": d.uploader_name, "uploader_role": d.uploader_role,
+            "file_type": d.file_type, "uploader_uid": d.uploader_uid, "uploader_name": d.uploader_name,
+            "uploader_role": d.uploader_role, "visibility": d.visibility or "public",
             "created_at": d.created_at.isoformat() if d.created_at else ""
         })
-    return render_template("notes.html", notes=items, departments=DEPARTMENTS)
+        
+    my_items = []
+    for d in my_notes:
+        file_url = url_for("serve_file", file_id=d.file_id) if d.file_id else ""
+        my_items.append({
+            "id": d.id, "title": d.title, "subject": d.subject, "department": d.department,
+            "description": d.description, "file_url": file_url, "file_name": d.file_name,
+            "file_type": d.file_type, "uploader_uid": d.uploader_uid, "uploader_name": d.uploader_name,
+            "uploader_role": d.uploader_role, "visibility": d.visibility or "public",
+            "created_at": d.created_at.isoformat() if d.created_at else ""
+        })
+        
+    classmates_list = [{"id": u.id, "name": u.name, "department": u.department or "", "roll": u.roll_number or ""} for u in User.query.filter(User.role == "student", User.id != uid).order_by(User.name).all()]
+
+    return render_template(
+        "notes.html",
+        public_notes=public_items,
+        my_notes=my_items,
+        shared_notes=shared_notes,
+        classmates=classmates_list,
+        departments=DEPARTMENTS,
+        active_tab=view_tab
+    )
 
 @app.route("/notes/upload", methods=["GET", "POST"])
 @login_required
 def upload_note():
+    classmates_list = [{"id": u.id, "name": u.name, "department": u.department or ""} for u in User.query.filter(User.role == "student", User.id != session["uid"]).order_by(User.name).all()]
     if request.method == "POST":
         uid = session["uid"]
         user = get_current_user()
@@ -810,16 +1240,16 @@ def upload_note():
 
         if not title or not file or not file.filename:
             flash("Title and file are required.", "danger")
-            return render_template("notes_form.html", departments=DEPARTMENTS)
+            return render_template("notes_form.html", departments=DEPARTMENTS, classmates=classmates_list)
 
         if not allowed_file(file.filename):
             flash("File type not allowed.", "danger")
-            return render_template("notes_form.html", departments=DEPARTMENTS)
+            return render_template("notes_form.html", departments=DEPARTMENTS, classmates=classmates_list)
 
         file_data = file.read()
         if len(file_data) > MAX_FILE_SIZE_MB * 1024 * 1024:
             flash(f"File too large. Maximum size is {MAX_FILE_SIZE_MB}MB.", "danger")
-            return render_template("notes_form.html", departments=DEPARTMENTS)
+            return render_template("notes_form.html", departments=DEPARTMENTS, classmates=classmates_list)
 
         try:
             ext = file.filename.rsplit(".", 1)[1].lower()
@@ -829,8 +1259,12 @@ def upload_note():
                 data=file_data
             )
             db.session.add(uploaded_file)
-            db.session.flush() # Get ID
+            db.session.flush()
             
+            visibility = request.form.get("visibility", "public")
+            if visibility not in ("public", "private", "shared"):
+                visibility = "public"
+                
             note = Note(
                 title=title,
                 subject=request.form.get("subject", "").strip(),
@@ -839,22 +1273,119 @@ def upload_note():
                 file_id=uploaded_file.id,
                 file_name=file.filename,
                 file_type=ext,
+                visibility=visibility,
                 uploader_uid=uid,
                 uploader_name=user.get("name", "Unknown") if user else "Unknown",
                 uploader_role=session.get("role")
             )
             db.session.add(note)
+            db.session.flush()
+            
+            # If shared with specific student on upload
+            share_with = request.form.get("share_with_uid", "").strip()
+            if share_with:
+                target_student = User.query.get(share_with)
+                if target_student:
+                    share_rec = NoteShare(
+                        note_id=note.id,
+                        sender_uid=uid,
+                        sender_name=user.get("name", "Classmate") if user else "Classmate",
+                        recipient_uid=target_student.id,
+                        recipient_name=target_student.name
+                    )
+                    db.session.add(share_rec)
+
             db.session.commit()
             log_activity(session["uid"], session.get("name"), session.get("role"), "notes_uploaded", "Notes", f"Uploaded note: '{title}' ({note.subject})")
             flash("Note uploaded successfully.", "success")
-            return redirect(url_for("notes"))
+            return redirect(url_for("notes", tab="my"))
         except Exception as e:
             app.logger.error(f"Storage upload error: {e}")
             db.session.rollback()
             flash("File upload failed.", "danger")
-            return render_template("notes_form.html", departments=DEPARTMENTS)
+            return render_template("notes_form.html", departments=DEPARTMENTS, classmates=classmates_list)
             
-    return render_template("notes_form.html", departments=DEPARTMENTS)
+    return render_template("notes_form.html", departments=DEPARTMENTS, classmates=classmates_list)
+
+@app.route("/notes/<note_id>/delete", methods=["POST"])
+@login_required
+def delete_note(note_id):
+    uid = session["uid"]
+    role = session.get("role")
+    note = Note.query.get(note_id)
+    if not note:
+        flash("Note not found.", "danger")
+        return redirect(url_for("notes"))
+        
+    if note.uploader_uid != uid and role != "admin":
+        flash("Permission denied. You can only delete your own notes.", "danger")
+        return redirect(url_for("notes"))
+        
+    try:
+        NoteShare.query.filter_by(note_id=note_id).delete()
+        if note.file_id:
+            f = UploadedFile.query.get(note.file_id)
+            if f:
+                db.session.delete(f)
+        db.session.delete(note)
+        db.session.commit()
+        log_activity(uid, session.get("name"), role, "note_deleted", "Notes", f"Deleted note: '{note.title}'")
+        flash("Note deleted successfully.", "success")
+    except Exception as e:
+        app.logger.error(f"Note deletion error: {e}")
+        db.session.rollback()
+        flash("Failed to delete note.", "danger")
+        
+    return redirect(url_for("notes", tab="my"))
+
+@app.route("/notes/<note_id>/share", methods=["POST"])
+@login_required
+def share_note(note_id):
+    uid = session["uid"]
+    user = get_current_user()
+    recipient_uid = request.form.get("recipient_uid", "").strip()
+    
+    note = Note.query.get(note_id)
+    if not note:
+        flash("Note not found.", "danger")
+        return redirect(url_for("notes"))
+        
+    if not recipient_uid:
+        flash("Please select a classmate to share with.", "danger")
+        return redirect(url_for("notes"))
+        
+    recipient = User.query.get(recipient_uid)
+    if not recipient or recipient.role != "student":
+        flash("Selected recipient is invalid.", "danger")
+        return redirect(url_for("notes"))
+        
+    if recipient.id == uid:
+        flash("You cannot share a note with yourself.", "warning")
+        return redirect(url_for("notes"))
+        
+    existing = NoteShare.query.filter_by(note_id=note_id, recipient_uid=recipient.id).first()
+    if existing:
+        flash(f"Note is already shared with {recipient.name}.", "info")
+        return redirect(url_for("notes"))
+        
+    try:
+        share_rec = NoteShare(
+            note_id=note.id,
+            sender_uid=uid,
+            sender_name=user.get("name", "Classmate") if user else "Classmate",
+            recipient_uid=recipient.id,
+            recipient_name=recipient.name
+        )
+        db.session.add(share_rec)
+        db.session.commit()
+        log_activity(uid, session.get("name"), session.get("role"), "note_shared", "Notes", f"Shared note '{note.title}' with {recipient.name}")
+        flash(f"Note successfully shared with {recipient.name}!", "success")
+    except Exception as e:
+        app.logger.error(f"Share note error: {e}")
+        db.session.rollback()
+        flash("Failed to share note.", "danger")
+        
+    return redirect(url_for("notes"))
 
 # ===========================================================================
 # DOUBTS
@@ -873,14 +1404,20 @@ def doubts():
         query = query.filter_by(target_uid=uid)
         
     docs = query.all()
-    items = [{"id": d.id, "question": d.question, "asker_name": d.asker_name, "target_name": d.target_name, "department": d.department, "answer": d.answer, "answered": d.answered, "created_at": d.created_at.isoformat() if d.created_at else ""} for d in docs]
+    items = [{
+        "id": d.id, "question": d.question, "asker_name": d.asker_name, "asker_uid": d.asker_uid,
+        "target_name": d.target_name, "target_uid": d.target_uid, "target_type": d.target_type,
+        "department": d.department, "answer": d.answer, "answered": d.answered,
+        "answered_at": d.answered_at.isoformat() if d.answered_at else "",
+        "created_at": d.created_at.isoformat() if d.created_at else ""
+    } for d in docs]
     return render_template("doubts.html", doubts=items)
 
 @app.route("/doubts/ask", methods=["GET", "POST"])
 @role_required("student")
 def ask_doubt():
-    faculty_list = [{"id": f.id, "name": f.name} for f in User.query.filter_by(role="faculty").all()]
-    club_list = [{"id": c.id, "name": c.name} for c in User.query.filter_by(role="club").all()]
+    faculty_list = [{"id": f.id, "name": f.name, "designation": f.designation} for f in User.query.filter_by(role="faculty").all()]
+    club_list = [{"id": c.id, "name": c.name, "club_name": c.club_name, "club_category": c.club_category} for c in User.query.filter_by(role="club").all()]
 
     if request.method == "POST":
         uid = session["uid"]
@@ -924,7 +1461,7 @@ def answer_doubt(doubt_id):
         doubt.answered_at = datetime.now(timezone.utc)
         db.session.commit()
         log_activity(session["uid"], session.get("name"), session.get("role"), "doubt_answered", "Doubts", f"Answered doubt for {doubt.asker_name}")
-        flash("Answer submitted.", "success")
+        flash("Answer submitted successfully.", "success")
     return redirect(url_for("doubts"))
 
 # ===========================================================================
@@ -942,8 +1479,26 @@ def quizzes():
     for d in docs:
         if role == "faculty" and d.creator_uid != uid:
             continue
+            
+        questions = []
+        try:
+            questions = json.loads(d.questions) if d.questions else []
+        except Exception:
+            pass
+            
+        attempts_count = QuizResult.query.filter_by(quiz_id=d.id).count()
+        my_result = None
+        if role == "student":
+            r = QuizResult.query.filter_by(quiz_id=d.id, student_uid=uid).first()
+            if r:
+                my_result = {"score": r.score, "total": r.total}
+                
         items.append({
             "id": d.id, "title": d.title, "department": d.department, "creator_name": d.creator_name,
+            "creator_uid": d.creator_uid, "is_active": d.is_active,
+            "questions_count": len(questions),
+            "attempts_count": attempts_count,
+            "my_result": my_result,
             "created_at": d.created_at.isoformat() if d.created_at else ""
         })
     return render_template("quizzes.html", quizzes=items)
@@ -963,7 +1518,7 @@ def create_quiz():
             questions = []
             
         if not title or not questions:
-            flash("Title and at least one question are required.", "danger")
+            flash("Title and at least one valid question are required.", "danger")
             return render_template("quiz_form.html", departments=DEPARTMENTS)
             
         quiz = Quiz(
@@ -976,7 +1531,7 @@ def create_quiz():
         db.session.add(quiz)
         db.session.commit()
         log_activity(session["uid"], session.get("name"), session.get("role"), "quiz_created", "Quizzes", f"Created quiz: '{title}' ({quiz.department})")
-        flash("Quiz created.", "success")
+        flash("Quiz created successfully.", "success")
         return redirect(url_for("quizzes"))
         
     return render_template("quiz_form.html", departments=DEPARTMENTS)
@@ -992,25 +1547,32 @@ def attempt_quiz(quiz_id):
         flash("You have already attempted this quiz.", "info")
         return redirect(url_for("quiz_result", quiz_id=quiz_id))
         
-    quiz_dict = {"id": quiz_obj.id, "title": quiz_obj.title, "questions": json.loads(quiz_obj.questions)}
+    questions = []
+    try:
+        questions = json.loads(quiz_obj.questions) if quiz_obj.questions else []
+    except Exception:
+        questions = []
+        
+    quiz_dict = {"id": quiz_obj.id, "title": quiz_obj.title, "creator_name": quiz_obj.creator_name, "department": quiz_obj.department, "questions": questions}
     
     if request.method == "POST":
-        questions = quiz_dict.get("questions", [])
         score = 0
         answers = []
         for i, q in enumerate(questions):
             selected = request.form.get(f"q_{i}", "")
-            correct = q.get("correct", "")
-            is_correct = selected == correct
+            correct = str(q.get("correct", "0"))
+            is_correct = str(selected) == correct
+            marks = int(q.get("marks", 1))
             if is_correct:
-                score += q.get("marks", 1)
+                score += marks
             answers.append({
                 "question": q.get("question", ""),
                 "selected": selected,
                 "correct": correct,
                 "is_correct": is_correct,
+                "marks": marks
             })
-        total = sum(q.get("marks", 1) for q in questions)
+        total = sum(int(q.get("marks", 1)) for q in questions)
         
         result = QuizResult(
             quiz_id=quiz_id,
@@ -1019,7 +1581,8 @@ def attempt_quiz(quiz_id):
             student_name=session.get("name", ""),
             score=score,
             total=total,
-            answers=json.dumps(answers)
+            answers=json.dumps(answers),
+            submitted_at=datetime.now(timezone.utc)
         )
         db.session.add(result)
         db.session.commit()
@@ -1033,17 +1596,88 @@ def attempt_quiz(quiz_id):
 @login_required
 def quiz_result(quiz_id):
     uid = session["uid"]
-    r = QuizResult.query.filter_by(quiz_id=quiz_id, student_uid=uid).first()
+    role = session.get("role")
+    
+    # Students view their own result; faculty can view by student_uid param if supplied
+    student_uid = request.args.get("student_uid", uid) if role in ("faculty", "admin") else uid
+    r = QuizResult.query.filter_by(quiz_id=quiz_id, student_uid=student_uid).first()
     quiz_obj = Quiz.query.get(quiz_id)
     
     result_data = None
     if r:
-        result_data = {"id": r.id, "score": r.score, "total": r.total, "answers": json.loads(r.answers)}
+        answers = []
+        try:
+            answers = json.loads(r.answers) if r.answers else []
+        except Exception:
+            answers = []
+        result_data = {
+            "id": r.id, "score": r.score, "total": r.total, "answers": answers,
+            "student_name": r.student_name,
+            "submitted_at": r.submitted_at.strftime("%b %d, %Y %H:%M") if r.submitted_at else ""
+        }
     quiz_data = {}
     if quiz_obj:
         quiz_data = {"id": quiz_obj.id, "title": quiz_obj.title}
         
     return render_template("quiz_result.html", result=result_data, quiz=quiz_data)
+
+@app.route("/quizzes/<quiz_id>/results")
+@role_required("faculty")
+def view_quiz_results(quiz_id):
+    quiz_obj = Quiz.query.get_or_404(quiz_id)
+    if quiz_obj.creator_uid != session["uid"] and session.get("role") != "admin":
+        flash("Permission denied.", "danger")
+        return redirect(url_for("quizzes"))
+        
+    results = QuizResult.query.filter_by(quiz_id=quiz_id).order_by(QuizResult.submitted_at.desc()).all()
+    results_data = []
+    for r in results:
+        student = User.query.get(r.student_uid)
+        results_data.append({
+            "id": r.id,
+            "student_uid": r.student_uid,
+            "student_name": r.student_name,
+            "student_roll": student.roll_number if student else "—",
+            "student_department": student.department if student else "—",
+            "score": r.score,
+            "total": r.total,
+            "percentage": round((r.score / r.total * 100), 1) if r.total else 0,
+            "submitted_at": r.submitted_at.strftime("%b %d, %Y %H:%M") if r.submitted_at else ""
+        })
+    quiz_data = {
+        "id": quiz_obj.id,
+        "title": quiz_obj.title,
+        "department": quiz_obj.department,
+        "is_active": quiz_obj.is_active,
+        "created_at": quiz_obj.created_at.strftime("%b %d, %Y") if quiz_obj.created_at else ""
+    }
+    return render_template("quiz_submissions.html", quiz=quiz_data, results=results_data)
+
+@app.route("/quizzes/<quiz_id>/toggle", methods=["POST"])
+@role_required("faculty")
+def toggle_quiz(quiz_id):
+    quiz_obj = Quiz.query.get_or_404(quiz_id)
+    if quiz_obj.creator_uid != session["uid"] and session.get("role") != "admin":
+        flash("Permission denied.", "danger")
+        return redirect(url_for("quizzes"))
+    quiz_obj.is_active = not quiz_obj.is_active
+    db.session.commit()
+    status_txt = "active" if quiz_obj.is_active else "inactive"
+    flash(f"Quiz '{quiz_obj.title}' is now {status_txt}.", "success")
+    return redirect(url_for("quizzes"))
+
+@app.route("/quizzes/<quiz_id>/delete", methods=["POST"])
+@role_required("faculty")
+def delete_quiz(quiz_id):
+    quiz_obj = Quiz.query.get_or_404(quiz_id)
+    if quiz_obj.creator_uid != session["uid"] and session.get("role") != "admin":
+        flash("Permission denied.", "danger")
+        return redirect(url_for("quizzes"))
+    QuizResult.query.filter_by(quiz_id=quiz_id).delete()
+    db.session.delete(quiz_obj)
+    db.session.commit()
+    flash("Quiz and all attempt records deleted.", "success")
+    return redirect(url_for("quizzes"))
 
 # ===========================================================================
 # CLASSMATES & SHARING

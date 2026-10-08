@@ -51,6 +51,9 @@ class Notice(db.Model):
     author_name = db.Column(db.String(100))
     author_role = db.Column(db.String(20))
     category = db.Column(db.String(50))
+    file_id = db.Column(db.String(36), db.ForeignKey('uploaded_files.id'), nullable=True)
+    file_name = db.Column(db.String(255), nullable=True)
+    file_type = db.Column(db.String(20), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
     updated_at = db.Column(db.DateTime(timezone=True))
 
@@ -64,6 +67,9 @@ class Assignment(db.Model):
     subject = db.Column(db.String(100))
     author_uid = db.Column(db.String(36), db.ForeignKey('users.id'))
     author_name = db.Column(db.String(100))
+    file_id = db.Column(db.String(36), db.ForeignKey('uploaded_files.id'), nullable=True)
+    file_name = db.Column(db.String(255), nullable=True)
+    file_type = db.Column(db.String(20), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
     updated_at = db.Column(db.DateTime(timezone=True))
 
@@ -85,10 +91,36 @@ class Note(db.Model):
     file_id = db.Column(db.String(36), db.ForeignKey('uploaded_files.id'))
     file_name = db.Column(db.String(255))
     file_type = db.Column(db.String(20))
+    visibility = db.Column(db.String(20), default='public') # 'public', 'private', 'shared'
     uploader_uid = db.Column(db.String(36), db.ForeignKey('users.id'))
     uploader_name = db.Column(db.String(100))
     uploader_role = db.Column(db.String(20))
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
+
+class NoteShare(db.Model):
+    __tablename__ = 'note_shares'
+    id = db.Column(db.String(36), primary_key=True, default=lambda: uuid.uuid4().hex)
+    note_id = db.Column(db.String(36), db.ForeignKey('notes.id'))
+    sender_uid = db.Column(db.String(36), db.ForeignKey('users.id'))
+    sender_name = db.Column(db.String(100))
+    recipient_uid = db.Column(db.String(36), db.ForeignKey('users.id'))
+    recipient_name = db.Column(db.String(100))
+    created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
+
+class AssignmentSubmission(db.Model):
+    __tablename__ = 'assignment_submissions'
+    id = db.Column(db.String(36), primary_key=True, default=lambda: uuid.uuid4().hex)
+    assignment_id = db.Column(db.String(36), db.ForeignKey('assignments.id'))
+    student_uid = db.Column(db.String(36), db.ForeignKey('users.id'))
+    student_name = db.Column(db.String(100))
+    student_roll = db.Column(db.String(50))
+    student_department = db.Column(db.String(100))
+    file_id = db.Column(db.String(36), db.ForeignKey('uploaded_files.id'))
+    file_name = db.Column(db.String(255))
+    file_type = db.Column(db.String(20))
+    remarks = db.Column(db.Text)
+    status = db.Column(db.String(20), default='Submitted')
+    submitted_at = db.Column(db.DateTime(timezone=True), default=utcnow)
 
 class Doubt(db.Model):
     __tablename__ = 'doubts'
@@ -217,15 +249,35 @@ def init_db_and_migrate(app):
             db.create_all()
             from sqlalchemy import inspect, text
             inspector = inspect(db.engine)
-            if 'users' in inspector.get_table_names():
-                existing_cols = [c['name'] for c in inspector.get_columns('users')]
-                with db.engine.connect() as conn:
+            table_names = inspector.get_table_names()
+            with db.engine.connect() as conn:
+                if 'users' in table_names:
+                    existing_cols = [c['name'] for c in inspector.get_columns('users')]
                     if 'last_login_at' not in existing_cols:
                         conn.execute(text("ALTER TABLE users ADD COLUMN last_login_at TIMESTAMP"))
-                        conn.commit()
                     if 'login_count' not in existing_cols:
                         conn.execute(text("ALTER TABLE users ADD COLUMN login_count INTEGER DEFAULT 0"))
-                        conn.commit()
+                if 'assignments' in table_names:
+                    existing_cols = [c['name'] for c in inspector.get_columns('assignments')]
+                    if 'file_id' not in existing_cols:
+                        conn.execute(text("ALTER TABLE assignments ADD COLUMN file_id VARCHAR(36)"))
+                    if 'file_name' not in existing_cols:
+                        conn.execute(text("ALTER TABLE assignments ADD COLUMN file_name VARCHAR(255)"))
+                    if 'file_type' not in existing_cols:
+                        conn.execute(text("ALTER TABLE assignments ADD COLUMN file_type VARCHAR(20)"))
+                if 'notices' in table_names:
+                    existing_cols = [c['name'] for c in inspector.get_columns('notices')]
+                    if 'file_id' not in existing_cols:
+                        conn.execute(text("ALTER TABLE notices ADD COLUMN file_id VARCHAR(36)"))
+                    if 'file_name' not in existing_cols:
+                        conn.execute(text("ALTER TABLE notices ADD COLUMN file_name VARCHAR(255)"))
+                    if 'file_type' not in existing_cols:
+                        conn.execute(text("ALTER TABLE notices ADD COLUMN file_type VARCHAR(20)"))
+                if 'notes' in table_names:
+                    existing_cols = [c['name'] for c in inspector.get_columns('notes')]
+                    if 'visibility' not in existing_cols:
+                        conn.execute(text("ALTER TABLE notes ADD COLUMN visibility VARCHAR(20) DEFAULT 'public'"))
+                conn.commit()
         except Exception as e:
             app.logger.warning(f"Database migration check warning: {e}")
         finally:

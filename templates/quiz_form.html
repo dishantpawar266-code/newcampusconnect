@@ -3,10 +3,10 @@
 {% block page_title %}Create Quiz{% endblock %}
 {% block content %}
 
-<div style="max-width:800px">
+<div style="max-width:850px">
   <div class="card">
     <div class="card-header">
-      <span class="card-title">📝 Create New Quiz</span>
+      <span class="card-title">📝 Build New Online Assessment</span>
     </div>
     <div class="card-body">
       <form method="POST" action="{{ url_for('create_quiz') }}" id="quiz-form">
@@ -14,12 +14,12 @@
           <div class="form-group">
             <label class="form-label" for="title">Quiz Title <span class="required">*</span></label>
             <input type="text" id="title" name="title" class="form-control"
-                   placeholder="e.g. Python Basics Quiz" required />
+                   placeholder="e.g. Data Structures Unit 2 Quick Quiz" required />
           </div>
           <div class="form-group">
             <label class="form-label" for="department">Target Department</label>
             <select id="department" name="department" class="form-control">
-              <option value="">All Departments</option>
+              <option value="">All Departments (General)</option>
               {% for dept in departments %}
                 <option value="{{ dept }}">{{ dept }}</option>
               {% endfor %}
@@ -27,25 +27,31 @@
           </div>
         </div>
 
-        <!-- Questions Builder -->
-        <div style="margin-top:8px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-            <label class="form-label" style="margin-bottom:0">Questions <span class="required">*</span></label>
+        <!-- Questions Section -->
+        <div style="margin-top:20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+            <div>
+              <label class="form-label" style="margin-bottom:2px;font-size:1.1rem;font-weight:700;">Quiz Questions <span class="required">*</span></label>
+              <div style="font-size:0.85rem;color:var(--gray-500)">Add multiple-choice questions with options and mark the correct answer.</div>
+            </div>
             <button type="button" class="btn btn-secondary btn-sm" id="add-question-btn">
               + Add Question
             </button>
           </div>
-          <div id="quiz-builder">
-            <div id="questions-container"></div>
-            <input type="hidden" name="questions_json" id="questions-json" value="[]" />
-          </div>
-          <div id="no-questions-msg" style="padding:24px;text-align:center;color:var(--gray-400);border:2px dashed var(--gray-200);border-radius:var(--border-radius-sm)">
-            Click "+ Add Question" to begin building your quiz.
+
+          <div id="questions-container" style="display:flex;flex-direction:column;gap:16px;"></div>
+          <input type="hidden" name="questions_json" id="questions-json" value="[]" />
+
+          <div id="no-questions-msg" style="padding:32px 20px;text-align:center;color:var(--gray-500);border:2px dashed var(--gray-300);border-radius:var(--radius-md);background:var(--gray-50);">
+            <div style="font-size:2rem;margin-bottom:8px;">📝</div>
+            <div style="font-weight:600;margin-bottom:4px;">No Questions Added Yet</div>
+            <div style="font-size:0.85rem;margin-bottom:12px;">Click "+ Add Question" to start building your quiz assessment.</div>
+            <button type="button" class="btn btn-primary btn-sm" onclick="addQuestionCard()">+ Add Question</button>
           </div>
         </div>
 
-        <div style="display:flex;gap:12px;margin-top:24px">
-          <button type="submit" class="btn btn-primary">📝 Create Quiz</button>
+        <div style="display:flex;gap:12px;margin-top:28px">
+          <button type="submit" class="btn btn-primary">💾 Save & Publish Quiz</button>
           <a href="{{ url_for('quizzes') }}" class="btn btn-secondary">Cancel</a>
         </div>
       </form>
@@ -57,23 +63,147 @@
 
 {% block extra_scripts %}
 <script>
-  // Hide the placeholder when questions exist
-  const orig = window.renderQuizQuestions;
-  function renderQuizQuestionsPatched() {
-    orig && orig();
-    const msg = document.getElementById('no-questions-msg');
-    if (msg) msg.style.display = quizQuestions.length ? 'none' : '';
+  let questionCount = 0;
+
+  function addQuestionCard(existingData = null) {
+    questionCount++;
+    const qIndex = questionCount;
+    const container = document.getElementById('questions-container');
+    const emptyMsg = document.getElementById('no-questions-msg');
+    if (emptyMsg) emptyMsg.style.display = 'none';
+
+    const card = document.createElement('div');
+    card.className = 'card question-card';
+    card.id = `question-card-${qIndex}`;
+    card.style.background = '#ffffff';
+    card.style.border = '1px solid var(--gray-200)';
+    card.style.borderRadius = 'var(--radius-md)';
+    card.style.padding = '18px 20px';
+    card.style.boxShadow = 'var(--shadow-sm)';
+
+    const defaultQuestion = existingData ? existingData.question : '';
+    const defaultMarks = existingData ? existingData.marks : 1;
+    const defaultOpts = existingData && existingData.options ? existingData.options : ['', '', '', ''];
+    const defaultCorrect = existingData ? existingData.correct : '0';
+
+    card.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <span style="font-weight:700; color:var(--gray-800); font-size:1rem;">Question <span class="q-num"></span></span>
+        <button type="button" class="btn btn-ghost btn-xs" style="color:#ef4444;" onclick="removeQuestionCard('${qIndex}')">🗑️ Remove</button>
+      </div>
+
+      <div class="form-row" style="margin-bottom:12px;">
+        <div class="form-group" style="flex:4; margin-bottom:0;">
+          <label class="form-label">Question Text <span class="required">*</span></label>
+          <input type="text" class="form-control q-text" placeholder="Enter the question..." value="${escapeHtml(defaultQuestion)}" required />
+        </div>
+        <div class="form-group" style="flex:1; margin-bottom:0;">
+          <label class="form-label">Marks</label>
+          <input type="number" class="form-control q-marks" value="${defaultMarks}" min="1" max="50" required />
+        </div>
+      </div>
+
+      <label class="form-label" style="margin-bottom:6px;">Options (Select the correct option radio) <span class="required">*</span></label>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        ${[0, 1, 2, 3].map(optIdx => `
+          <div style="display:flex; align-items:center; gap:10px;">
+            <input type="radio" name="correct_for_${qIndex}" value="${optIdx}" ${String(defaultCorrect) === String(optIdx) ? 'checked' : ''} title="Mark as correct answer" />
+            <input type="text" class="form-control q-opt" data-opt-idx="${optIdx}" placeholder="Option ${String.fromCharCode(65 + optIdx)}" value="${escapeHtml(defaultOpts[optIdx] || '')}" required />
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    container.appendChild(card);
+    updateQuestionNumbers();
   }
-  // Override after app.js loads
-  document.addEventListener('DOMContentLoaded', () => {
-    const addBtn = document.getElementById('add-question-btn');
-    if (addBtn) {
-      addBtn._origClick = addBtn.onclick;
-      addBtn.addEventListener('click', () => {
-        setTimeout(renderQuizQuestionsPatched, 50);
-      });
+
+  function removeQuestionCard(qIndex) {
+    const card = document.getElementById(`question-card-${qIndex}`);
+    if (card) card.remove();
+    updateQuestionNumbers();
+    const container = document.getElementById('questions-container');
+    const emptyMsg = document.getElementById('no-questions-msg');
+    if (container.children.length === 0 && emptyMsg) {
+      emptyMsg.style.display = 'block';
     }
-    renderQuizQuestionsPatched();
+  }
+
+  function updateQuestionNumbers() {
+    const cards = document.querySelectorAll('.question-card');
+    cards.forEach((card, idx) => {
+      const numSpan = card.querySelector('.q-num');
+      if (numSpan) numSpan.textContent = `#${idx + 1}`;
+    });
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+  }
+
+  document.getElementById('add-question-btn').addEventListener('click', () => addQuestionCard());
+
+  // Form submit serialization and validation
+  document.getElementById('quiz-form').addEventListener('submit', function (e) {
+    const cards = document.querySelectorAll('.question-card');
+    if (cards.length === 0) {
+      e.preventDefault();
+      alert('Please add at least one question before saving.');
+      return;
+    }
+
+    const questions = [];
+    let valid = true;
+
+    cards.forEach((card, idx) => {
+      const qText = card.querySelector('.q-text').value.trim();
+      const qMarks = parseInt(card.querySelector('.q-marks').value) || 1;
+      const optInputs = card.querySelectorAll('.q-opt');
+      const options = [];
+      optInputs.forEach(input => {
+        options.push(input.value.trim());
+      });
+
+      const checkedRadio = card.querySelector('input[type="radio"]:checked');
+      if (!checkedRadio) {
+        alert(`Question #${idx + 1} does not have a correct answer marked.`);
+        valid = false;
+        return;
+      }
+      const correctIdx = checkedRadio.value;
+
+      if (!qText) {
+        alert(`Question #${idx + 1} text is empty.`);
+        valid = false;
+        return;
+      }
+
+      if (options.some(opt => !opt)) {
+        alert(`Question #${idx + 1} has empty options. Please fill all options.`);
+        valid = false;
+        return;
+      }
+
+      questions.push({
+        question: qText,
+        marks: qMarks,
+        options: options,
+        correct: correctIdx
+      });
+    });
+
+    if (!valid) {
+      e.preventDefault();
+      return;
+    }
+
+    document.getElementById('questions-json').value = JSON.stringify(questions);
+  });
+
+  // Initialize with one empty question
+  document.addEventListener('DOMContentLoaded', () => {
+    addQuestionCard();
   });
 </script>
 {% endblock %}

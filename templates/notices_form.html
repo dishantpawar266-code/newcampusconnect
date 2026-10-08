@@ -6,10 +6,10 @@
 <div style="max-width:680px">
   <div class="card">
     <div class="card-header">
-      <span class="card-title">{{ 'Edit Notice' if notice else 'Publish Notice' }}</span>
+      <span class="card-title">{{ '✏️ Edit Notice' if notice else '📢 Publish New Notice' }}</span>
     </div>
     <div class="card-body">
-      <form method="POST">
+      <form method="POST" enctype="multipart/form-data">
         <div class="form-group">
           <label class="form-label" for="title">Notice Title <span class="required">*</span></label>
           <input type="text" id="title" name="title" class="form-control"
@@ -18,25 +18,46 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="content">Content <span class="required">*</span></label>
+          <label class="form-label" for="content">Notice Content & Details <span class="required">*</span></label>
           <textarea id="content" name="content" class="form-control" rows="6"
-                    placeholder="Write your notice content here..." required>{{ notice.content if notice else '' }}</textarea>
+                    placeholder="Write detailed announcements, schedule, venue, or instructions..." required>{{ notice.content if notice else '' }}</textarea>
         </div>
 
-        {% if current_user.role == 'faculty' %}
+        {% if current_user.role in ('faculty', 'admin') %}
           <div class="form-group">
             <label class="form-label" for="department">Target Department</label>
             <select id="department" name="department" class="form-control">
-              <option value="">All Departments</option>
+              <option value="">All Departments (Campus-wide)</option>
               {% for dept in departments %}
                 <option value="{{ dept }}" {{ 'selected' if notice and notice.department == dept }}>{{ dept }}</option>
               {% endfor %}
             </select>
-            <div class="form-hint">Leave empty to show to all departments.</div>
+            <div class="form-hint">Leave empty to show notice across all departments.</div>
           </div>
         {% endif %}
 
-        <div style="display:flex;gap:12px;margin-top:8px">
+        <div class="form-group">
+          <label class="form-label">Attachment (PDF or Image - Optional)</label>
+          {% if notice and notice.file_name %}
+            <div style="margin-bottom:10px;padding:8px 12px;background:var(--gray-50);border-radius:var(--border-radius-sm);font-size:13px;display:flex;align-items:center;gap:8px">
+              <span>📎 Current attachment: <strong>{{ notice.file_name }}</strong></span>
+            </div>
+          {% endif %}
+          <div style="border:2px dashed var(--gray-300);border-radius:var(--border-radius-sm);padding:24px;text-align:center;transition:border-color .2s">
+            <div style="font-size:28px;margin-bottom:8px">📎</div>
+            <div style="font-size:13px;color:var(--gray-600);margin-bottom:8px">Attach circular PDF or event poster image</div>
+            <label class="btn btn-secondary btn-sm" style="cursor:pointer">
+              Browse File
+              <input type="file" name="file" id="file-input" style="display:none"
+                     accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+                     onchange="document.getElementById('file-name-display').textContent = this.files[0]?.name || 'No file selected'" />
+            </label>
+            <div id="file-name-display" style="margin-top:8px;font-size:12px;color:var(--gray-500)">No file selected</div>
+          </div>
+          <div class="form-hint">Accepted formats: PDF circulars, JPG/PNG event banners, documents · Max 10MB</div>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-top:16px">
           <button type="submit" class="btn btn-primary">
             {{ '💾 Save Changes' if notice else '📢 Publish Notice' }}
           </button>
