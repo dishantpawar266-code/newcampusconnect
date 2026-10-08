@@ -3,87 +3,130 @@
 {% block page_title %}Upload Note{% endblock %}
 {% block content %}
 
-<div style="max-width:680px">
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">📤 Upload Academic Note</span>
+<div style="max-width:720px; margin:0 auto;">
+  <div class="card" style="padding:24px 28px; border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); border:1px solid var(--gray-200);">
+    <div class="card-header" style="border-bottom:1px solid var(--gray-200); padding-bottom:14px; margin-bottom:20px;">
+      <div>
+        <h2 class="card-title" style="font-size:1.3rem; font-weight:800; color:var(--gray-900); margin:0;">
+          📤 Upload Academic Material / Note
+        </h2>
+        <p style="font-size:0.85rem; color:var(--gray-500); margin:4px 0 0;">
+          Share lecture slides, study guides, or keep private personal notes.
+        </p>
+      </div>
+      <a href="{{ url_for('notes') }}" class="btn btn-ghost btn-sm">← Back to Notes</a>
     </div>
-    <div class="card-body">
-      <form method="POST" action="{{ url_for('upload_note') }}" enctype="multipart/form-data">
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label" for="title">Title <span class="required">*</span></label>
-            <input type="text" id="title" name="title" class="form-control"
-                   placeholder="e.g. Operating Systems Unit 3 Notes" required />
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="subject">Subject</label>
-            <input type="text" id="subject" name="subject" class="form-control"
-                   placeholder="e.g. Operating Systems" />
-          </div>
-        </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label" for="department">Department</label>
-            <select id="department" name="department" class="form-control">
-              <option value="">General / All Departments</option>
-              {% for dept in departments %}
-                <option value="{{ dept }}">{{ dept }}</option>
-              {% endfor %}
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="visibility">Visibility <span class="required">*</span></label>
-            <select id="visibility" name="visibility" class="form-control" onchange="toggleSharePicker(this.value)" required>
-              <option value="public" selected>🌐 Public (Visible to all students)</option>
-              <option value="shared">🤝 Shared (Share with specific classmate)</option>
-              <option value="private">🔒 Private (Only visible to me)</option>
-            </select>
-          </div>
+    <form method="POST" action="{{ url_for('upload_note') }}" enctype="multipart/form-data">
+      <div class="form-row mb-4">
+        <div class="form-group" style="flex:1;">
+          <label class="form-label" for="title" style="font-weight:700;">Note Title <span class="required">*</span></label>
+          <input type="text" id="title" name="title" class="form-control"
+                 placeholder="e.g. Operating Systems Unit 3 Scheduling Slides" required style="font-size:0.95rem;" />
         </div>
-
-        <div class="form-group" id="share-picker-group" style="display:none;background:var(--gray-50);padding:14px;border-radius:var(--border-radius-sm);border:1px dashed var(--gray-300)">
-          <label class="form-label" for="share_with_uid">Share with Classmate (optional)</label>
-          <select id="share_with_uid" name="share_with_uid" class="form-control">
-            <option value="">-- Select classmate --</option>
-            {% for s in classmates %}
-              <option value="{{ s.id }}">{{ s.name }} ({{ s.department or 'Student' }})</option>
-            {% endfor %}
-          </select>
-          <div class="form-hint">You can also share this note with classmates anytime after uploading.</div>
+        <div class="form-group" style="flex:1;">
+          <label class="form-label" for="subject" style="font-weight:700;">Subject</label>
+          <input type="text" id="subject" name="subject" class="form-control"
+                 placeholder="e.g. Operating Systems" style="font-size:0.95rem;" />
         </div>
+      </div>
 
-        <div class="form-group">
-          <label class="form-label" for="description">Description (optional)</label>
-          <textarea id="description" name="description" class="form-control" rows="3"
-                    placeholder="Brief description or table of contents..."></textarea>
-        </div>
+      <div class="form-group mb-4">
+        <label class="form-label" for="department" style="font-weight:700;">Target Class / Department</label>
+        <select id="department" name="department" class="form-control" style="font-size:0.9rem;">
+          <option value="">General / All Classes</option>
+          {% set class_options = faculty_classes if faculty_classes else departments %}
+          {% for dept in class_options %}
+            <option value="{{ dept }}">{{ dept }}</option>
+          {% endfor %}
+        </select>
+        <div style="font-size:0.75rem; color:var(--gray-500); margin-top:4px;">Students belonging to this class will be able to discover this note when public.</div>
+      </div>
 
-        <div class="form-group">
-          <label class="form-label">File <span class="required">*</span></label>
-          <div style="border:2px dashed var(--gray-300);border-radius:var(--border-radius-sm);padding:32px;text-align:center;transition:border-color .2s"
-               id="drop-zone">
-            <div style="font-size:36px;margin-bottom:12px">📁</div>
-            <div style="font-size:14px;color:var(--gray-600);margin-bottom:8px">Select PDF, Word document, slides or image</div>
-            <label class="btn btn-secondary" style="cursor:pointer">
-              Browse File
-              <input type="file" name="file" id="file-input" style="display:none" required
-                     accept=".pdf,.txt,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png,.webp"
-                     onchange="document.getElementById('file-name-display').textContent = this.files[0]?.name || 'No file selected'" />
-            </label>
-            <div id="file-name-display" style="margin-top:10px;font-size:13px;color:var(--gray-500)">No file selected</div>
-          </div>
-          <div class="form-hint">Allowed formats: PDF, DOCX, DOC, PPT, PPTX, TXT, JPG, PNG, WEBP · Max 10MB</div>
-        </div>
+      <!-- VISIBILITY SELECTOR (Requirement 1: Private vs Public) -->
+      <div class="form-group mb-4">
+        <label class="form-label" style="font-weight:700; margin-bottom:8px;">
+          Note Visibility <span class="required">*</span>
+        </label>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          
+          <!-- Public Option -->
+          <label style="display:flex; align-items:flex-start; gap:12px; padding:12px 16px; border:1px solid #86efac; border-radius:var(--radius-md); background:#f0fdf4; cursor:pointer;">
+            <input type="radio" name="visibility" value="public" checked onchange="toggleSharePicker(this.value)" style="margin-top:3px;" />
+            <div>
+              <div style="font-weight:700; font-size:0.92rem; color:#15803d;">🌐 Public (Classmates & Department)</div>
+              <div style="font-size:0.8rem; color:#166534; margin-top:2px;">
+                Visible to other eligible students according to existing department/class access rules.
+              </div>
+            </div>
+          </label>
 
-        <div style="display:flex;gap:12px">
-          <button type="submit" class="btn btn-primary">📤 Upload Note</button>
-          <a href="{{ url_for('notes') }}" class="btn btn-secondary">Cancel</a>
+          <!-- Private Option -->
+          <label style="display:flex; align-items:flex-start; gap:12px; padding:12px 16px; border:1px solid #cbd5e1; border-radius:var(--radius-md); background:#f8fafc; cursor:pointer;">
+            <input type="radio" name="visibility" value="private" onchange="toggleSharePicker(this.value)" style="margin-top:3px;" />
+            <div>
+              <div style="font-weight:700; font-size:0.92rem; color:#334155;">🔒 Private (Only Me)</div>
+              <div style="font-size:0.8rem; color:#475569; margin-top:2px;">
+                Visible only to you. No other student can see or download this file.
+              </div>
+            </div>
+          </label>
+
+          <!-- Shared Option -->
+          <label style="display:flex; align-items:flex-start; gap:12px; padding:12px 16px; border:1px solid #bfdbfe; border-radius:var(--radius-md); background:#eff6ff; cursor:pointer;">
+            <input type="radio" name="visibility" value="shared" onchange="toggleSharePicker(this.value)" style="margin-top:3px;" />
+            <div>
+              <div style="font-weight:700; font-size:0.92rem; color:#1d4ed8;">🤝 Shared Directly</div>
+              <div style="font-size:0.8rem; color:#1e40af; margin-top:2px;">
+                Share directly with a specific classmate of your choice.
+              </div>
+            </div>
+          </label>
+
         </div>
-      </form>
-    </div>
+      </div>
+
+      <!-- Classmate picker when Shared is selected -->
+      <div class="form-group mb-4" id="share-picker-group" style="display:none; background:var(--gray-50); padding:16px; border-radius:var(--radius-md); border:1px dashed var(--gray-300);">
+        <label class="form-label" for="share_with_uid" style="font-weight:700;">Select Classmate to Share With</label>
+        <select id="share_with_uid" name="share_with_uid" class="form-control">
+          <option value="">-- Choose classmate --</option>
+          {% for s in classmates %}
+            <option value="{{ s.id }}">{{ s.name }} ({{ s.department or 'Student' }})</option>
+          {% endfor %}
+        </select>
+        <div class="form-hint" style="margin-top:6px;">You can also share this note with other classmates anytime from your notes list.</div>
+      </div>
+
+      <!-- Description -->
+      <div class="form-group mb-4">
+        <label class="form-label" for="description">Description / Overview (Optional)</label>
+        <textarea id="description" name="description" class="form-control" rows="3"
+                  placeholder="Summary of topics covered, chapters, or textbook references..." style="border-radius:var(--radius-md); font-size:0.88rem;"></textarea>
+      </div>
+
+      <!-- File Attachment -->
+      <div class="form-group mb-5">
+        <label class="form-label" style="font-weight:700;">File Attachment <span class="required">*</span></label>
+        <div style="border:2px dashed var(--gray-300); border-radius:var(--radius-md); padding:32px 20px; text-align:center; background:#ffffff; transition:border-color .2s;" id="drop-zone">
+          <div style="font-size:36px; margin-bottom:10px;">📁</div>
+          <div style="font-size:0.9rem; color:var(--gray-700); font-weight:600; margin-bottom:8px;">Choose PDF, Word Document, Slides or Image</div>
+          <label class="btn btn-secondary btn-sm" style="cursor:pointer; font-weight:600;">
+            Browse File
+            <input type="file" name="file" id="file-input" style="display:none;" required
+                   accept=".pdf,.txt,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png,.webp"
+                   onchange="document.getElementById('file-name-display').textContent = this.files[0]?.name || 'No file selected'" />
+          </label>
+          <div id="file-name-display" style="margin-top:10px; font-size:0.82rem; color:var(--primary); font-weight:600;">No file selected</div>
+        </div>
+        <div class="form-hint" style="margin-top:6px;">Supported: PDF, DOCX, DOC, PPT, PPTX, TXT, JPG, PNG, WEBP · Max 10MB</div>
+      </div>
+
+      <div style="display:flex; gap:12px; padding-top:16px; border-top:1px solid var(--gray-200);">
+        <button type="submit" class="btn btn-primary" style="font-weight:700; padding:10px 24px;">📤 Upload Note</button>
+        <a href="{{ url_for('notes') }}" class="btn btn-secondary" style="padding:10px 18px;">Cancel</a>
+      </div>
+    </form>
   </div>
 </div>
 

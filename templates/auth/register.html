@@ -151,8 +151,11 @@
 
           <div class="form-group">
             <label class="form-label">
-              Department(s) You Teach <span class="required">*</span>
+              Classes You Teach <span class="required">*</span>
             </label>
+            <p style="font-size:0.83rem; color:var(--gray-600); margin-top:-2px; margin-bottom:10px;">
+              Select all classes and departments you teach. You can select multiple classes:
+            </p>
             <div class="dept-chips-grid">
               {% for dept in departments %}
                 <label class="dept-chip-label">
@@ -161,7 +164,7 @@
                 </label>
               {% endfor %}
             </div>
-            <div class="form-hint">Select all departments you are affiliated with.</div>
+            <div class="form-hint">One faculty member can teach multiple classes. Select all that apply.</div>
           </div>
         </div>
 

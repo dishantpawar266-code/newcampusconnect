@@ -1,13 +1,28 @@
 {% extends "base.html" %}
-{% block title %}Doubts — Campus Connect{% endblock %}
-{% block page_title %}Doubts{% endblock %}
+{% block title %}{% if current_user.role == 'faculty' %}Solve Doubts — Faculty Portal{% else %}Ask Doubts — Campus Connect{% endif %}{% endblock %}
+{% block page_title %}{% if current_user.role == 'faculty' %}Solve Doubts{% else %}Doubts{% endif %}{% endblock %}
 {% block content %}
 
-<div class="page-header">
+<!-- Header -->
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
   <div class="page-header-left">
-    <h1 class="page-title">Doubts</h1>
-    <p class="page-subtitle">
-      {% if current_user.role == 'student' %}Ask faculty or clubs your questions{% else %}Student questions for you{% endif %}
+    <h1 class="page-title" style="font-size:1.75rem; font-weight:800; color:var(--gray-900); margin:0;">
+      {% if current_user.role == 'faculty' %}
+        💬 Solve Student Doubts
+      {% elif current_user.role == 'club' %}
+        💬 Student Inquiries
+      {% else %}
+        ❓ Academic Doubts & Queries
+      {% endif %}
+    </h1>
+    <p class="page-subtitle" style="color:var(--gray-500); margin:4px 0 0; font-size:0.9rem;">
+      {% if current_user.role == 'faculty' %}
+        Review and solve student academic questions from your assigned classes.
+      {% elif current_user.role == 'club' %}
+        Respond to student questions regarding club events and activities.
+      {% else %}
+        Ask doubts directly to faculty or campus clubs, and view solutions.
+      {% endif %}
     </p>
   </div>
   {% if current_user.role == 'student' %}
@@ -15,48 +30,114 @@
   {% endif %}
 </div>
 
+<!-- Faculty Class & Status Filter Tabs -->
+{% if current_user.role == 'faculty' and my_classes %}
+  <div class="card mb-6" style="padding:14px 18px; border-radius:var(--radius-md);">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+      
+      <!-- Class Filter -->
+      <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+        <span style="font-size:0.8rem; font-weight:700; color:var(--gray-500); text-transform:uppercase; margin-right:4px;">Class:</span>
+        <a href="{{ url_for('doubts', **{'class': 'all', 'status': status_filter}) }}"
+           class="btn btn-xs {% if selected_class == 'all' %}btn-primary{% else %}btn-ghost{% endif %}"
+           style="border-radius:999px; padding:4px 12px; font-weight:600;">
+          All Assigned Classes
+        </a>
+        {% for c in my_classes %}
+          <a href="{{ url_for('doubts', **{'class': c, 'status': status_filter}) }}"
+             class="btn btn-xs {% if selected_class == c %}btn-primary{% else %}btn-outline{% endif %}"
+             style="border-radius:999px; padding:4px 12px; font-weight:600;">
+            {{ c }}
+          </a>
+        {% endfor %}
+      </div>
+
+      <!-- Status Filter -->
+      <div style="display:flex; gap:6px; align-items:center;">
+        <span style="font-size:0.8rem; font-weight:700; color:var(--gray-500); text-transform:uppercase; margin-right:4px;">Status:</span>
+        <a href="{{ url_for('doubts', **{'class': selected_class, 'status': 'all'}) }}"
+           class="btn btn-xs {% if status_filter == 'all' %}btn-primary{% else %}btn-ghost{% endif %}"
+           style="border-radius:999px; padding:4px 10px;">
+          All
+        </a>
+        <a href="{{ url_for('doubts', **{'class': selected_class, 'status': 'pending'}) }}"
+           class="btn btn-xs {% if status_filter == 'pending' %}btn-primary{% else %}btn-ghost{% endif %}"
+           style="border-radius:999px; padding:4px 10px;">
+          ⏳ Pending
+        </a>
+        <a href="{{ url_for('doubts', **{'class': selected_class, 'status': 'solved'}) }}"
+           class="btn btn-xs {% if status_filter == 'solved' %}btn-primary{% else %}btn-ghost{% endif %}"
+           style="border-radius:999px; padding:4px 10px;">
+          ✓ Solved
+        </a>
+      </div>
+
+    </div>
+  </div>
+{% endif %}
+
 {% if doubts %}
-  <div class="item-list">
+  <div class="item-list" style="display:flex; flex-direction:column; gap:16px;">
     {% for doubt in doubts %}
-      <div class="item-card">
-        <div class="item-card-top">
-          <div>
-            <div class="item-card-title">{{ doubt.question }}</div>
-            <div class="item-card-meta">
-              <span class="badge badge-{{ 'green' if doubt.answered else 'orange' }}">
-                {{ '✓ Answered' if doubt.answered else '⏳ Pending' }}
+      <div class="card" style="padding:20px; border-radius:var(--radius-md); border:1px solid var(--gray-200); box-shadow:var(--shadow-sm);">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            {% if doubt.answered %}
+              <span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-weight:700; font-size:0.75rem;">
+                ✓ SOLVED
               </span>
-              <span class="meta-item">🎓 {{ doubt.asker_name }}</span>
-              <span class="meta-item">→ {{ doubt.target_name }}</span>
-              <span class="meta-item">📅 {{ doubt.created_at[:10] if doubt.created_at else '' }}</span>
-              {% if doubt.department %}
-                <span class="meta-item">🏢 {{ doubt.department }}</span>
-              {% endif %}
-            </div>
+            {% else %}
+              <span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700; font-size:0.75rem;">
+                ⏳ PENDING
+              </span>
+            {% endif %}
+            <span class="badge badge-purple" style="font-size:0.75rem; font-weight:600;">
+              🏫 {{ doubt.department }}
+            </span>
           </div>
+          <span style="font-size:0.8rem; color:var(--gray-400);">📅 {{ doubt.created_at }}</span>
         </div>
 
+        <!-- Question Body -->
+        <div style="font-size:1.05rem; font-weight:700; color:var(--gray-900); line-height:1.45; margin:6px 0 10px;">
+          {{ doubt.question }}
+        </div>
+
+        <div style="font-size:0.82rem; color:var(--gray-500); margin-bottom:14px;">
+          👤 Student: <strong style="color:var(--gray-800);">{{ doubt.asker_name }}</strong>
+          {% if doubt.target_name %} • Target: <strong>{{ doubt.target_name }}</strong>{% endif %}
+        </div>
+
+        <!-- Solved Answer Display -->
         {% if doubt.answer %}
-          <div style="margin-top:14px;padding:14px;background:var(--gray-50);border-radius:var(--border-radius-sm);border-left:3px solid #22c55e">
-            <div style="font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:6px">ANSWER</div>
-            <div style="font-size:14px;color:var(--gray-700);line-height:1.5">{{ doubt.answer }}</div>
-            <div style="font-size:11px;color:var(--gray-400);margin-top:6px">
-              Answered by {{ doubt.target_name }}
-              {% if doubt.answered_at %} on {{ doubt.answered_at[:10] }}{% endif %}
+          <div style="padding:16px; background:#f0fdf4; border-radius:var(--radius-md); border-left:4px solid #22c55e; margin-top:12px;">
+            <div style="font-size:0.75rem; font-weight:700; color:#15803d; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px;">
+              ✓ Verified Solution / Faculty Reply:
+            </div>
+            <div style="font-size:0.95rem; color:#166534; line-height:1.55; white-space:pre-wrap;">{{ doubt.answer }}</div>
+            <div style="font-size:0.75rem; color:#4ade80; margin-top:8px;">
+              Answered by {{ doubt.target_name }} {% if doubt.answered_at %}on {{ doubt.answered_at }}{% endif %}
             </div>
           </div>
         {% endif %}
 
-        {% if current_user.role in ('faculty', 'club') and not doubt.answered and (doubt.target_uid == current_user.uid or doubt.target_uid == current_user.id) %}
-          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--gray-100)">
-            <form method="POST" action="{{ url_for('answer_doubt', doubt_id=doubt.id) }}"
-                  style="display:flex;gap:10px;align-items:flex-end">
-              <div class="form-group" style="flex:1;margin-bottom:0">
-                <label class="form-label">Your Response to Student</label>
+        <!-- Faculty / Club Solve Form (Requirement 4) -->
+        {% if current_user.role in ('faculty', 'club') and not doubt.answered %}
+          <div style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--gray-200);">
+            <form method="POST" action="{{ url_for('answer_doubt', doubt_id=doubt.id) }}">
+              <div class="form-group" style="margin-bottom:10px;">
+                <label class="form-label" style="font-weight:700; font-size:0.88rem; color:var(--gray-800);">
+                  Provide Solution / Reply to Student <span class="required">*</span>
+                </label>
                 <textarea name="answer" class="form-control" rows="3"
-                          placeholder="Type your response here..." required></textarea>
+                          placeholder="Type your explanation, hints, or solution for the student..." required
+                          style="font-size:0.9rem; border-radius:var(--radius-md);"></textarea>
               </div>
-              <button type="submit" class="btn btn-success" style="align-self:flex-end;white-space:nowrap">✓ Send Answer</button>
+              <div style="display:flex; justify-content:flex-end;">
+                <button type="submit" class="btn btn-primary btn-sm" style="font-weight:600;">
+                  ✓ Submit Solution
+                </button>
+              </div>
             </form>
           </div>
         {% endif %}
@@ -65,18 +146,30 @@
   </div>
 {% else %}
   <div class="card">
-    <div class="empty-state">
-      <div class="empty-state-icon">❓</div>
-      <div class="empty-state-title">No doubts yet.</div>
-      <div class="empty-state-text">
-        {% if current_user.role == 'student' %}
-          Have an academic question? Ask your faculty or club here.
+    <div class="empty-state" style="padding:48px 20px;">
+      <div class="empty-state-icon">🎉</div>
+      <div class="empty-state-title">
+        {% if current_user.role == 'faculty' %}
+          No Questions Found
         {% else %}
-          Students will send their questions here. Check back soon.
+          No Doubts Asked Yet
         {% endif %}
       </div>
+      <p class="empty-state-desc">
+        {% if current_user.role == 'faculty' %}
+          {% if status_filter == 'pending' %}
+            All student doubts in your assigned classes have been solved!
+          {% else %}
+            No questions submitted by students in this filter yet.
+          {% endif %}
+        {% else %}
+          Have an academic question? Click below to ask your faculty or club mentor.
+        {% endif %}
+      </p>
       {% if current_user.role == 'student' %}
-        <a href="{{ url_for('ask_doubt') }}" class="btn btn-primary" style="margin-top:16px">❓ Ask First Question</a>
+        <a href="{{ url_for('ask_doubt') }}" class="btn btn-primary" style="margin-top:16px;">
+          ❓ Ask First Question
+        </a>
       {% endif %}
     </div>
   </div>

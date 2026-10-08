@@ -3,57 +3,102 @@
 {% block page_title %}Quizzes{% endblock %}
 {% block content %}
 
-<div class="page-header">
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
   <div class="page-header-left">
-    <h1 class="page-title">Quizzes & Online Assessments</h1>
-    <p class="page-subtitle">
+    <h1 class="page-title" style="font-size:1.75rem; font-weight:800; color:var(--gray-900); margin:0;">
+      🏆 Online Quizzes & Assessments
+    </h1>
+    <p class="page-subtitle" style="color:var(--gray-500); margin:4px 0 0; font-size:0.9rem;">
       {% if current_user.role == 'faculty' %}
-        Build, manage and analyze student quiz assessments
+        Create class-targeted quizzes, control live Active/Inactive status, and analyze student scores.
       {% else %}
-        Test your subject knowledge and view instant results
+        Attempt active quizzes assigned to your department with instant automatic grading.
       {% endif %}
     </p>
   </div>
   {% if current_user.role == 'faculty' %}
-    <a href="{{ url_for('create_quiz') }}" class="btn btn-primary">+ Create New Quiz</a>
+    <a href="{{ url_for('create_quiz') }}" class="btn btn-primary" style="font-weight:600;">
+      + Create New Quiz
+    </a>
   {% endif %}
 </div>
 
 {% if quizzes %}
-  <div class="item-list">
+  <div class="item-list" style="display:flex; flex-direction:column; gap:16px;">
     {% for quiz in quizzes %}
-      <div class="item-card">
-        <div class="item-card-top" style="flex-wrap:wrap; gap:12px;">
-          <div>
-            <div class="item-card-title">{{ quiz.title }}</div>
-            <div class="item-card-meta">
-              <span class="badge badge-{{ 'green' if quiz.is_active else 'gray' }}">
-                {{ 'Active' if quiz.is_active else 'Inactive' }}
-              </span>
-              {% if quiz.department %}
-                <span class="meta-item">🏢 {{ quiz.department }}</span>
+      <div class="card" style="padding:20px; border-radius:var(--radius-md); border:1px solid var(--gray-200); box-shadow:var(--shadow-sm);">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:14px;">
+          
+          <div style="max-width:70%;">
+            <!-- Status & Class Badges (Requirement 10) -->
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+              {% if quiz.is_active %}
+                <span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-weight:800; font-size:0.75rem; padding:4px 10px;">
+                  🟢 ACTIVE NOW
+                </span>
               {% else %}
-                <span class="meta-item">🏢 All Departments</span>
+                <span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:800; font-size:0.75rem; padding:4px 10px;">
+                  ⏸️ INACTIVE NOW
+                </span>
               {% endif %}
-              <span class="meta-item">👤 By {{ quiz.creator_name }}</span>
-              <span class="meta-item">📝 {{ quiz.questions_count }} question(s)</span>
-              <span class="meta-item">📅 {{ quiz.created_at[:10] if quiz.created_at else '' }}</span>
+
+              <span class="badge badge-purple" style="font-size:0.75rem; font-weight:600;">
+                🏫 {{ quiz.department or 'All Classes' }}
+              </span>
+            </div>
+
+            <!-- Quiz Title & Description -->
+            <h3 style="font-size:1.15rem; font-weight:700; color:var(--gray-900); margin:0 0 6px;">
+              {{ quiz.title }}
+            </h3>
+
+            {% if quiz.description %}
+              <p style="font-size:0.85rem; color:var(--gray-600); margin:0 0 8px; line-height:1.45;">
+                {{ quiz.description }}
+              </p>
+            {% endif %}
+
+            <!-- Metadata Row -->
+            <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; font-size:0.8rem; color:var(--gray-500);">
+              <span>📝 {{ quiz.questions_count }} Question(s)</span>
+              <span>👤 By {{ quiz.creator_name }}</span>
+              <span>📅 Posted: {{ quiz.created_at }}</span>
+              {% if quiz.start_time %}
+                <span>⏰ Start: {{ quiz.start_time }}</span>
+              {% endif %}
+              {% if quiz.end_time %}
+                <span>⏳ End: {{ quiz.end_time }}</span>
+              {% endif %}
             </div>
           </div>
 
+          <!-- Actions -->
           <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             {% if current_user.role == 'faculty' %}
-              <span class="badge badge-blue">{{ quiz.attempts_count }} student attempt(s)</span>
+              <span class="badge badge-blue" style="font-size:0.75rem; font-weight:600;">
+                {{ quiz.attempts_count }} student attempt(s)
+              </span>
+
               <a href="{{ url_for('view_quiz_results', quiz_id=quiz.id) }}" class="btn btn-outline btn-sm">
-                📊 View Results
+                📊 Results
               </a>
-              <form method="POST" action="{{ url_for('toggle_quiz', quiz_id=quiz.id) }}">
-                <button type="submit" class="btn btn-ghost btn-sm" title="Toggle active status">
-                  {{ 'Pause' if quiz.is_active else 'Activate' }}
+
+              <a href="{{ url_for('edit_quiz', quiz_id=quiz.id) }}" class="btn btn-ghost btn-sm" style="color:var(--gray-700);">
+                ✏️ Edit
+              </a>
+
+              <!-- Manual Active / Inactive Status Toggle -->
+              <form method="POST" action="{{ url_for('toggle_quiz', quiz_id=quiz.id) }}" style="display:inline;">
+                <button type="submit" class="btn btn-sm {% if quiz.is_active %}btn-outline{% else %}btn-primary{% endif %}"
+                        title="Toggle Active or Inactive status">
+                  {% if quiz.is_active %}⏸️ Deactivate{% else %}▶️ Activate Now{% endif %}
                 </button>
               </form>
+
+              <!-- Delete Quiz with Confirmation Dialog -->
               <form method="POST" action="{{ url_for('delete_quiz', quiz_id=quiz.id) }}"
-                    data-confirm="Delete this quiz and all student results? This cannot be undone.">
+                    onsubmit="return confirm('Are you sure you want to delete quiz \'{{ quiz.title }}\' and all student results? This action cannot be undone.');"
+                    style="display:inline;">
                 <button type="submit" class="btn btn-ghost btn-sm" style="color:#ef4444;" title="Delete Quiz">
                   🗑️
                 </button>
@@ -61,39 +106,44 @@
 
             {% elif current_user.role == 'student' %}
               {% if quiz.my_result %}
-                <span class="badge badge-green" style="font-weight:600;">
-                  ✓ Completed: {{ quiz.my_result.score }}/{{ quiz.my_result.total }}
+                <span class="badge badge-green" style="font-weight:700; font-size:0.8rem; padding:6px 12px;">
+                  ✓ Completed: {{ quiz.my_result.score }} / {{ quiz.my_result.total }}
                 </span>
                 <a href="{{ url_for('quiz_result', quiz_id=quiz.id) }}" class="btn btn-outline btn-sm">
-                  View Result
+                  View Detailed Answers
                 </a>
               {% elif quiz.is_active %}
-                <a href="{{ url_for('attempt_quiz', quiz_id=quiz.id) }}" class="btn btn-primary btn-sm">
-                  📝 Attempt Quiz
+                <a href="{{ url_for('attempt_quiz', quiz_id=quiz.id) }}" class="btn btn-primary btn-sm" style="font-weight:700;">
+                  📝 Attempt Quiz Now →
                 </a>
               {% else %}
-                <span class="badge badge-gray">Closed</span>
+                <span class="badge badge-gray" style="font-size:0.8rem; padding:6px 12px;">
+                  ⏸️ Quiz Inactive
+                </span>
               {% endif %}
             {% endif %}
           </div>
+
         </div>
       </div>
     {% endfor %}
   </div>
 {% else %}
   <div class="card">
-    <div class="empty-state">
+    <div class="empty-state" style="padding:48px 20px;">
       <div class="empty-state-icon">🏆</div>
-      <div class="empty-state-title">No quizzes available right now.</div>
-      <div class="empty-state-text">
+      <div class="empty-state-title">No Quizzes Available</div>
+      <p class="empty-state-desc">
         {% if current_user.role == 'faculty' %}
-          Create your first quiz to evaluate student learning with instant grading.
+          You have not created any quizzes yet. Build your first quiz with questions, active status control, and automated grading.
         {% else %}
-          Your faculty has not posted any active quizzes yet. Check back soon!
+          There are currently no active quizzes available for your class. Check back later!
         {% endif %}
-      </div>
+      </p>
       {% if current_user.role == 'faculty' %}
-        <a href="{{ url_for('create_quiz') }}" class="btn btn-primary" style="margin-top:16px">+ Create First Quiz</a>
+        <a href="{{ url_for('create_quiz') }}" class="btn btn-primary" style="margin-top:16px;">
+          + Build First Quiz
+        </a>
       {% endif %}
     </div>
   </div>

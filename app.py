@@ -229,7 +229,7 @@ def get_current_user():
                 "name": user.name,
                 "role": user.role,
                 "department": user.department,
-                "departments": json.loads(user.departments) if user.departments else [],
+                "departments": get_faculty_classes(user),
                 "roll_number": user.roll_number,
                 "year": user.year,
                 "bio": user.bio,
@@ -247,6 +247,44 @@ def get_current_user():
         except Exception:
             pass
     return None
+
+def get_faculty_classes(user):
+    if not user:
+        return []
+    depts = []
+    raw = None
+    single = None
+    if isinstance(user, dict):
+        raw = user.get("departments")
+        single = user.get("department")
+    else:
+        raw = getattr(user, "departments", None)
+        single = getattr(user, "department", None)
+        
+    if raw:
+        if isinstance(raw, list):
+            depts = [str(d).strip() for d in raw if str(d).strip()]
+        elif isinstance(raw, str):
+            try:
+                loaded = json.loads(raw)
+                if isinstance(loaded, list):
+                    depts = [str(d).strip() for d in loaded if str(d).strip()]
+                elif loaded:
+                    depts = [str(loaded).strip()]
+            except Exception:
+                depts = [d.strip() for d in raw.split(",") if d.strip()]
+    if not depts and single:
+        depts = [single.strip()]
+    if not depts:
+        depts = DEPARTMENTS.copy()
+    return depts
+
+def get_class_student_count(class_name):
+    return User.query.filter(
+        User.role == "student",
+        (User.department == class_name) | (User.department.ilike(f"%{class_name}%")),
+        User.is_active == True
+    ).count()
 
 @app.before_request
 def ensure_clean_script_name():
@@ -337,7 +375,10 @@ def _handle_register(form):
             user.year = form.get("year", "")
         elif role == "faculty":
             departments = form.getlist("department")
+            if not departments and form.get("department"):
+                departments = [form.get("department")]
             user.departments = json.dumps(departments)
+            user.department = departments[0] if departments else ""
             user.designation = form.get("designation", "").strip()
         elif role == "club":
             user.club_name = form.get("club_name", name).strip()
@@ -469,9 +510,61 @@ def dashboard():
     # -----------------------------------------------------------------------
     if role == "faculty":
         try:
-            pending_doubts = Doubt.query.filter_by(target_uid=uid, answered=False).order_by(Doubt.created_at.desc()).all()
-            my_assignments = Assignment.query.filter_by(author_uid=uid).order_by(Assignment.created_at.desc()).all()
-            
+            user_obj = User.query.get(uid)
+            my_classes = get_faculty_classes(user_obj)
+            active_class = request.args.get("class", "all").strip()
+            if active_class != "all" and active_class not in my_classes:
+                matched = [c for c in my_classes if c == active_class or active_class.lower() in c.lower()]
+                active_class = matched[0] if matched else "all"
+
+            # 1. Real database student count per class
+            class_stats = []
+            assigned_students_set = set()
+            for c in my_classes:
+                students_in_c = User.query.filter(
+                    User.role == "student",
+                    (User.department == c) | (User.department.ilike(f"%{c}%")),
+                    User.is_active == True
+                ).all()
+                for st in students_in_c:
+                    assigned_students_set.add(st.id)
+                class_stats.append({
+                    "class_name": c,
+                    "student_count": len(students_in_c),
+                    "is_active": (active_class == c)
+                })
+            total_students_count = len(assigned_students_set)
+
+            # 2. Filter doubts (Solve Doubts)
+            doubts_query = Doubt.query.order_by(Doubt.created_at.desc())
+            if active_class != "all":
+                doubts_query = doubts_query.filter(
+                    (Doubt.department == active_class) | (Doubt.department.ilike(f"%{active_class}%")) | (Doubt.target_uid == uid)
+                )
+            else:
+                dept_conditions = [(Doubt.department == c) | (Doubt.department.ilike(f"%{c}%")) for c in my_classes]
+                if dept_conditions:
+                    doubts_query = doubts_query.filter(db.or_(*dept_conditions, Doubt.target_uid == uid))
+                else:
+                    doubts_query = doubts_query.filter_by(target_uid=uid)
+
+            all_doubts = doubts_query.all()
+            pending_doubts = [d for d in all_doubts if not d.answered]
+            solved_doubts = [d for d in all_doubts if d.answered]
+
+            doubts_data = [{
+                "id": d.id, "question": d.question, "asker_name": d.asker_name or "Student",
+                "department": d.department or "General", "answered": d.answered, "answer": d.answer,
+                "created_at": d.created_at.strftime("%b %d, %Y") if d.created_at else ""
+            } for d in pending_doubts]
+
+            # 3. Coursework / Assignments
+            assign_query = Assignment.query.filter_by(author_uid=uid).order_by(Assignment.created_at.desc())
+            if active_class != "all":
+                assign_query = assign_query.filter(
+                    (Assignment.department == active_class) | (Assignment.department.ilike(f"%{active_class}%")) | (Assignment.department == "") | (Assignment.department == None)
+                )
+            my_assignments = assign_query.all()
             assignments_data = []
             for a in my_assignments:
                 sub_count = AssignmentSubmission.query.filter_by(assignment_id=a.id).count()
@@ -479,10 +572,16 @@ def dashboard():
                     "id": a.id, "title": a.title, "subject": a.subject, "department": a.department,
                     "deadline": a.deadline, "file_id": a.file_id, "file_name": a.file_name,
                     "submissions_count": sub_count,
-                    "created_at": a.created_at.isoformat() if a.created_at else ""
+                    "created_at": a.created_at.strftime("%b %d, %Y") if a.created_at else ""
                 })
-                
-            my_quizzes = Quiz.query.filter_by(creator_uid=uid).order_by(Quiz.created_at.desc()).all()
+
+            # 4. Quizzes (with Active Now / Inactive Now tracking)
+            quiz_query = Quiz.query.filter_by(creator_uid=uid).order_by(Quiz.created_at.desc())
+            if active_class != "all":
+                quiz_query = quiz_query.filter(
+                    (Quiz.department == active_class) | (Quiz.department.ilike(f"%{active_class}%")) | (Quiz.department == "") | (Quiz.department == None)
+                )
+            my_quizzes = quiz_query.all()
             quizzes_data = []
             for q in my_quizzes:
                 q_count = 0
@@ -495,46 +594,61 @@ def dashboard():
                     "id": q.id, "title": q.title, "department": q.department,
                     "questions_count": q_count, "attempts_count": att_count,
                     "is_active": q.is_active,
-                    "created_at": q.created_at.isoformat() if q.created_at else ""
+                    "created_at": q.created_at.strftime("%b %d, %Y") if q.created_at else ""
                 })
-                
-            my_notices = Notice.query.filter_by(author_uid=uid).order_by(Notice.created_at.desc()).all()
+
+            # 5. Notices
+            notice_query = Notice.query.filter_by(author_uid=uid).order_by(Notice.created_at.desc())
+            if active_class != "all":
+                notice_query = notice_query.filter(
+                    (Notice.department == active_class) | (Notice.department.ilike(f"%{active_class}%")) | (Notice.department == "") | (Notice.department == None)
+                )
+            my_notices = notice_query.all()
             notices_data = [{
                 "id": n.id, "title": n.title, "content": n.content, "department": n.department,
                 "file_id": n.file_id, "file_name": n.file_name, "file_type": n.file_type,
-                "created_at": n.created_at.isoformat() if n.created_at else ""
+                "created_at": n.created_at.strftime("%b %d, %Y") if n.created_at else ""
             } for n in my_notices]
-            
-            my_notes = Note.query.filter_by(uploader_uid=uid).order_by(Note.created_at.desc()).all()
+
+            # 6. Notes
+            notes_query = Note.query.filter_by(uploader_uid=uid).order_by(Note.created_at.desc())
+            if active_class != "all":
+                notes_query = notes_query.filter(
+                    (Note.department == active_class) | (Note.department.ilike(f"%{active_class}%")) | (Note.department == "") | (Note.department == None)
+                )
+            my_notes = notes_query.all()
             notes_data = [{
                 "id": nt.id, "title": nt.title, "subject": nt.subject, "department": nt.department,
                 "file_name": nt.file_name, "visibility": nt.visibility,
-                "created_at": nt.created_at.isoformat() if nt.created_at else ""
+                "created_at": nt.created_at.strftime("%b %d, %Y") if nt.created_at else ""
             } for nt in my_notes]
-            
-            doubts_data = [{
-                "id": d.id, "question": d.question, "asker_name": d.asker_name,
-                "department": d.department, "created_at": d.created_at.isoformat() if d.created_at else ""
-            } for d in pending_doubts]
-            
+
+            active_quizzes_count = sum(1 for q in quizzes_data if q["is_active"])
+
             faculty_stats = {
+                "my_classes": my_classes,
+                "class_stats": class_stats,
+                "active_class": active_class,
+                "total_students_count": total_students_count,
                 "pending_doubts_count": len(pending_doubts),
+                "solved_doubts_count": len(solved_doubts),
                 "total_assignments_count": len(my_assignments),
                 "total_submissions_count": sum(a["submissions_count"] for a in assignments_data),
                 "total_quizzes_count": len(my_quizzes),
+                "active_quizzes_count": active_quizzes_count,
                 "total_attempts_count": sum(q["attempts_count"] for q in quizzes_data),
                 "total_notices_count": len(my_notices),
                 "total_notes_count": len(my_notes),
-                "pending_doubts": doubts_data[:5],
-                "assignments": assignments_data,
-                "quizzes": quizzes_data,
+                "pending_doubts": doubts_data[:6],
+                "assignments": assignments_data[:6],
+                "quizzes": quizzes_data[:6],
                 "notices": notices_data[:5],
                 "notes": notes_data[:5]
             }
-            return render_template("faculty_dashboard.html", stats=faculty_stats)
+            return render_template("faculty_dashboard.html", stats=faculty_stats, faculty_classes=my_classes)
         except Exception as e:
             app.logger.error(f"Faculty dashboard error: {e}")
-            return render_template("faculty_dashboard.html", stats={"pending_doubts_count": 0, "total_assignments_count": 0, "total_submissions_count": 0, "total_quizzes_count": 0, "total_attempts_count": 0, "total_notices_count": 0, "total_notes_count": 0, "pending_doubts": [], "assignments": [], "quizzes": [], "notices": [], "notes": []})
+            return render_template("faculty_dashboard.html", stats={"my_classes": [], "class_stats": [], "active_class": "all", "total_students_count": 0, "pending_doubts_count": 0, "solved_doubts_count": 0, "total_assignments_count": 0, "total_submissions_count": 0, "total_quizzes_count": 0, "active_quizzes_count": 0, "total_attempts_count": 0, "total_notices_count": 0, "total_notes_count": 0, "pending_doubts": [], "assignments": [], "quizzes": [], "notices": [], "notes": []}, faculty_classes=[])
 
     # -----------------------------------------------------------------------
     # CLUB DASHBOARD (Role-specific overview)
@@ -598,12 +712,78 @@ def dashboard():
     return render_template("dashboard.html", stats=stats)
 
 # ===========================================================================
+# FACULTY STUDENTS ROSTER (Assigned classes directory)
+# ===========================================================================
+
+@app.route("/faculty/students")
+@role_required("faculty")
+def faculty_students():
+    uid = session["uid"]
+    user_obj = User.query.get(uid)
+    my_classes = get_faculty_classes(user_obj)
+    selected_class = request.args.get("class", "all").strip()
+
+    query = User.query.filter(User.role == "student", User.is_active == True)
+
+    if selected_class != "all" and (selected_class in my_classes or any(selected_class.lower() in c.lower() for c in my_classes)):
+        query = query.filter((User.department == selected_class) | (User.department.ilike(f"%{selected_class}%")))
+    else:
+        selected_class = "all"
+        dept_conditions = [(User.department == c) | (User.department.ilike(f"%{c}%")) for c in my_classes]
+        if dept_conditions:
+            query = query.filter(db.or_(*dept_conditions))
+        else:
+            query = query.filter(db.false())
+
+    search_term = request.args.get("q", "").strip()
+    if search_term:
+        query = query.filter(
+            (User.name.ilike(f"%{search_term}%")) |
+            (User.roll_number.ilike(f"%{search_term}%")) |
+            (User.email.ilike(f"%{search_term}%"))
+        )
+
+    students_records = query.order_by(User.name.asc()).all()
+
+    students_data = [{
+        "id": s.id,
+        "name": s.name,
+        "email": s.email,
+        "roll_number": s.roll_number or "—",
+        "department": s.department or "General",
+        "year": s.year or "—",
+        "created_at": s.created_at.strftime("%b %d, %Y") if s.created_at else "Active",
+        "is_active": s.is_active
+    } for s in students_records]
+
+    class_counts = {}
+    for c in my_classes:
+        class_counts[c] = User.query.filter(
+            User.role == "student",
+            (User.department == c) | (User.department.ilike(f"%{c}%")),
+            User.is_active == True
+        ).count()
+
+    return render_template(
+        "faculty_students.html",
+        students=students_data,
+        my_classes=my_classes,
+        selected_class=selected_class,
+        class_counts=class_counts,
+        total_students=len(students_data),
+        search_term=search_term
+    )
+
+# ===========================================================================
 # PLANNER / TASKS
 # ===========================================================================
 
 @app.route("/planner")
 @login_required
 def planner():
+    if session.get("role") == "faculty":
+        flash("Task Planner is a student-only feature.", "info")
+        return redirect(url_for("dashboard"))
     uid = session["uid"]
     tasks = Task.query.filter_by(user_uid=uid).order_by(Task.created_at.desc()).all()
     tasks_data = [{"id": t.id, "title": t.title, "subject": t.subject, "description": t.description, "due_date": t.due_date, "priority": t.priority, "est_time": t.est_time, "is_completed": t.is_completed} for t in tasks]
@@ -738,10 +918,27 @@ def profile():
 @app.route("/notices")
 @login_required
 def notices():
+    role = session.get("role")
+    uid = session.get("uid")
     dept_filter = request.args.get("department", "")
     query = Notice.query.order_by(Notice.created_at.desc())
+    user_obj = User.query.get(uid)
+    faculty_classes = get_faculty_classes(user_obj) if role == "faculty" else DEPARTMENTS
+    
     if dept_filter:
         query = query.filter((Notice.department == dept_filter) | (Notice.department == "") | (Notice.department == None))
+    elif role == "student":
+        user = get_current_user()
+        st_dept = user.get("department", "") if user else ""
+        if st_dept:
+            query = query.filter(
+                (Notice.category == "club") |
+                (Notice.department == "") |
+                (Notice.department == None) |
+                (Notice.department == "All My Classes") |
+                (Notice.department == st_dept) |
+                (Notice.department.ilike(f"%{st_dept}%"))
+            )
     
     docs = query.all()
     items = []
@@ -753,13 +950,15 @@ def notices():
             "category": d.category or "academic",
             "file_id": d.file_id, "file_name": d.file_name, "file_type": d.file_type,
             "file_url": file_url,
-            "created_at": d.created_at.isoformat() if d.created_at else ""
+            "created_at": d.created_at.strftime("%b %d, %Y") if d.created_at else ""
         })
-    return render_template("notices.html", notices=items, departments=DEPARTMENTS)
+    return render_template("notices.html", notices=items, departments=DEPARTMENTS, faculty_classes=faculty_classes)
 
 @app.route("/notices/create", methods=["GET", "POST"])
 @role_required("faculty", "club")
 def create_notice():
+    user_obj = User.query.get(session["uid"])
+    faculty_classes = get_faculty_classes(user_obj) if session.get("role") == "faculty" else DEPARTMENTS
     if request.method == "POST":
         uid = session["uid"]
         user = get_current_user()
@@ -768,7 +967,7 @@ def create_notice():
         content = request.form.get("content", "").strip()
         if not title or not content:
             flash("Title and content are required.", "danger")
-            return render_template("notices_form.html", departments=DEPARTMENTS)
+            return render_template("notices_form.html", departments=DEPARTMENTS, faculty_classes=faculty_classes)
             
         file = request.files.get("file")
         file_id = None
@@ -778,11 +977,11 @@ def create_notice():
         if file and file.filename:
             if not allowed_file(file.filename):
                 flash("File type not allowed. Please upload PDF, images, or documents.", "danger")
-                return render_template("notices_form.html", departments=DEPARTMENTS)
+                return render_template("notices_form.html", departments=DEPARTMENTS, faculty_classes=faculty_classes)
             file_data = file.read()
             if len(file_data) > MAX_FILE_SIZE_MB * 1024 * 1024:
                 flash(f"File too large. Maximum size is {MAX_FILE_SIZE_MB}MB.", "danger")
-                return render_template("notices_form.html", departments=DEPARTMENTS)
+                return render_template("notices_form.html", departments=DEPARTMENTS, faculty_classes=faculty_classes)
             try:
                 ext = file.filename.rsplit(".", 1)[1].lower()
                 uploaded_file = UploadedFile(
@@ -799,7 +998,7 @@ def create_notice():
                 app.logger.error(f"Notice file upload error: {e}")
                 db.session.rollback()
                 flash("Failed to upload notice attachment.", "danger")
-                return render_template("notices_form.html", departments=DEPARTMENTS)
+                return render_template("notices_form.html", departments=DEPARTMENTS, faculty_classes=faculty_classes)
 
         notice = Notice(
             title=title,
@@ -818,7 +1017,7 @@ def create_notice():
         log_activity(session["uid"], session.get("name"), session.get("role"), "notice_created", "Notices", f"Published notice: '{title}' ({notice.category})")
         flash("Notice published successfully.", "success")
         return redirect(url_for("notices"))
-    return render_template("notices_form.html", departments=DEPARTMENTS)
+    return render_template("notices_form.html", departments=DEPARTMENTS, faculty_classes=faculty_classes)
 
 @app.route("/notices/<notice_id>/edit", methods=["GET", "POST"])
 @role_required("faculty", "club")
@@ -828,6 +1027,8 @@ def edit_notice(notice_id):
         flash("You can only edit your own notices.", "danger")
         return redirect(url_for("notices"))
         
+    user_obj = User.query.get(session["uid"])
+    faculty_classes = get_faculty_classes(user_obj) if session.get("role") == "faculty" else DEPARTMENTS
     if request.method == "POST":
         notice.title = request.form.get("title", "").strip()
         notice.content = request.form.get("content", "").strip()
@@ -837,11 +1038,11 @@ def edit_notice(notice_id):
         if file and file.filename:
             if not allowed_file(file.filename):
                 flash("File type not allowed.", "danger")
-                return render_template("notices_form.html", notice=notice, departments=DEPARTMENTS)
+                return render_template("notices_form.html", notice=notice, departments=DEPARTMENTS, faculty_classes=faculty_classes)
             file_data = file.read()
             if len(file_data) > MAX_FILE_SIZE_MB * 1024 * 1024:
                 flash(f"File too large. Maximum size is {MAX_FILE_SIZE_MB}MB.", "danger")
-                return render_template("notices_form.html", notice=notice, departments=DEPARTMENTS)
+                return render_template("notices_form.html", notice=notice, departments=DEPARTMENTS, faculty_classes=faculty_classes)
             ext = file.filename.rsplit(".", 1)[1].lower()
             uploaded_file = UploadedFile(
                 filename=file.filename,
@@ -863,7 +1064,7 @@ def edit_notice(notice_id):
         "id": notice.id, "title": notice.title, "content": notice.content,
         "department": notice.department, "file_id": notice.file_id, "file_name": notice.file_name
     }
-    return render_template("notices_form.html", notice=notice_dict, departments=DEPARTMENTS)
+    return render_template("notices_form.html", notice=notice_dict, departments=DEPARTMENTS, faculty_classes=faculty_classes)
 
 @app.route("/notices/<notice_id>/delete", methods=["POST"])
 @role_required("faculty", "club")
@@ -888,19 +1089,34 @@ def delete_notice(notice_id):
 @app.route("/assignments")
 @login_required
 def assignments():
-    dept_filter = request.args.get("department", "")
+    role = session.get("role")
+    uid = session.get("uid")
+    dept_filter = request.args.get("department", "").strip()
     query = Assignment.query.order_by(Assignment.created_at.desc())
+    user_obj = User.query.get(uid)
+    faculty_classes = get_faculty_classes(user_obj) if role == "faculty" else DEPARTMENTS
+    
     if dept_filter:
         query = query.filter((Assignment.department == dept_filter) | (Assignment.department == "") | (Assignment.department == None))
+    elif role == "student":
+        user = get_current_user()
+        st_dept = user.get("department", "") if user else ""
+        if st_dept:
+            query = query.filter(
+                (Assignment.department == "") |
+                (Assignment.department == None) |
+                (Assignment.department == "All My Classes") |
+                (Assignment.department == st_dept) |
+                (Assignment.department.ilike(f"%{st_dept}%"))
+            )
         
     docs = query.all()
-    uid = session.get("uid")
     items = []
     for d in docs:
         file_url = url_for("serve_file", file_id=d.file_id) if d.file_id else ""
         sub_count = AssignmentSubmission.query.filter_by(assignment_id=d.id).count()
         my_sub = None
-        if session.get("role") == "student":
+        if role == "student":
             sub_rec = AssignmentSubmission.query.filter_by(assignment_id=d.id, student_uid=uid).first()
             if sub_rec:
                 my_sub = {
@@ -919,20 +1135,22 @@ def assignments():
             "file_id": d.file_id, "file_name": d.file_name, "file_type": d.file_type, "file_url": file_url,
             "submissions_count": sub_count,
             "my_submission": my_sub,
-            "created_at": d.created_at.isoformat() if d.created_at else ""
+            "created_at": d.created_at.strftime("%b %d, %Y") if d.created_at else ""
         })
-    return render_template("assignments.html", assignments=items, departments=DEPARTMENTS)
+    return render_template("assignments.html", assignments=items, departments=DEPARTMENTS, faculty_classes=faculty_classes, selected_dept=dept_filter)
 
 @app.route("/assignments/create", methods=["GET", "POST"])
 @role_required("faculty")
 def create_assignment():
+    user_obj = User.query.get(session["uid"])
+    faculty_classes = get_faculty_classes(user_obj)
     if request.method == "POST":
         uid = session["uid"]
         user = get_current_user()
         title = request.form.get("title", "").strip()
         if not title:
             flash("Title is required.", "danger")
-            return render_template("assignments_form.html", departments=DEPARTMENTS)
+            return render_template("assignments_form.html", departments=DEPARTMENTS, faculty_classes=faculty_classes)
             
         file = request.files.get("file")
         file_id = None
@@ -942,11 +1160,11 @@ def create_assignment():
         if file and file.filename:
             if not allowed_file(file.filename):
                 flash("File type not allowed.", "danger")
-                return render_template("assignments_form.html", departments=DEPARTMENTS)
+                return render_template("assignments_form.html", departments=DEPARTMENTS, faculty_classes=faculty_classes)
             file_data = file.read()
             if len(file_data) > MAX_FILE_SIZE_MB * 1024 * 1024:
                 flash(f"File too large. Maximum size is {MAX_FILE_SIZE_MB}MB.", "danger")
-                return render_template("assignments_form.html", departments=DEPARTMENTS)
+                return render_template("assignments_form.html", departments=DEPARTMENTS, faculty_classes=faculty_classes)
             try:
                 ext = file.filename.rsplit(".", 1)[1].lower()
                 uploaded_file = UploadedFile(
@@ -963,7 +1181,7 @@ def create_assignment():
                 app.logger.error(f"Assignment file upload error: {e}")
                 db.session.rollback()
                 flash("Failed to upload assignment file.", "danger")
-                return render_template("assignments_form.html", departments=DEPARTMENTS)
+                return render_template("assignments_form.html", departments=DEPARTMENTS, faculty_classes=faculty_classes)
 
         assignment = Assignment(
             title=title,
@@ -982,7 +1200,7 @@ def create_assignment():
         log_activity(session["uid"], session.get("name"), session.get("role"), "assignment_created", "Assignments", f"Created assignment: '{title}' ({assignment.subject})")
         flash("Assignment created successfully.", "success")
         return redirect(url_for("assignments"))
-    return render_template("assignments_form.html", departments=DEPARTMENTS)
+    return render_template("assignments_form.html", departments=DEPARTMENTS, faculty_classes=faculty_classes)
 
 @app.route("/assignments/<assignment_id>/edit", methods=["GET", "POST"])
 @role_required("faculty")
@@ -992,6 +1210,8 @@ def edit_assignment(assignment_id):
         flash("You can only edit your own assignments.", "danger")
         return redirect(url_for("assignments"))
         
+    user_obj = User.query.get(session["uid"])
+    faculty_classes = get_faculty_classes(user_obj)
     if request.method == "POST":
         assignment.title = request.form.get("title", "").strip()
         assignment.description = request.form.get("description", "").strip()
@@ -1003,11 +1223,11 @@ def edit_assignment(assignment_id):
         if file and file.filename:
             if not allowed_file(file.filename):
                 flash("File type not allowed.", "danger")
-                return render_template("assignments_form.html", assignment=assignment, departments=DEPARTMENTS)
+                return render_template("assignments_form.html", assignment=assignment, departments=DEPARTMENTS, faculty_classes=faculty_classes)
             file_data = file.read()
             if len(file_data) > MAX_FILE_SIZE_MB * 1024 * 1024:
                 flash(f"File too large. Maximum size is {MAX_FILE_SIZE_MB}MB.", "danger")
-                return render_template("assignments_form.html", assignment=assignment, departments=DEPARTMENTS)
+                return render_template("assignments_form.html", assignment=assignment, departments=DEPARTMENTS, faculty_classes=faculty_classes)
             ext = file.filename.rsplit(".", 1)[1].lower()
             uploaded_file = UploadedFile(
                 filename=file.filename,
@@ -1030,7 +1250,7 @@ def edit_assignment(assignment_id):
         "deadline": assignment.deadline, "department": assignment.department, "subject": assignment.subject,
         "file_id": assignment.file_id, "file_name": assignment.file_name
     }
-    return render_template("assignments_form.html", assignment=assignment_dict, departments=DEPARTMENTS)
+    return render_template("assignments_form.html", assignment=assignment_dict, departments=DEPARTMENTS, faculty_classes=faculty_classes)
 
 @app.route("/assignments/<assignment_id>/delete", methods=["POST"])
 @role_required("faculty")
@@ -1167,16 +1387,30 @@ def submit_assignment(assignment_id):
 @login_required
 def notes():
     uid = session["uid"]
-    dept_filter = request.args.get("department", "")
+    role = session.get("role")
+    dept_filter = request.args.get("department", "").strip()
     view_tab = request.args.get("tab", "all")
+    user_obj = User.query.get(uid)
+    faculty_classes = get_faculty_classes(user_obj) if role == "faculty" else DEPARTMENTS
     
-    # 1. Public notes
+    # 1. Public notes (strictly public visibility)
     public_query = Note.query.filter_by(visibility="public").order_by(Note.created_at.desc())
     if dept_filter:
         public_query = public_query.filter((Note.department == dept_filter) | (Note.department == "") | (Note.department == None))
+    elif role == "student":
+        user = get_current_user()
+        st_dept = user.get("department", "") if user else ""
+        if st_dept:
+            public_query = public_query.filter(
+                (Note.department == "") |
+                (Note.department == None) |
+                (Note.department == "All My Classes") |
+                (Note.department == st_dept) |
+                (Note.department.ilike(f"%{st_dept}%"))
+            )
     public_notes = public_query.all()
     
-    # 2. My notes
+    # 2. My notes (own uploaded notes: public, private, or shared)
     my_notes = Note.query.filter_by(uploader_uid=uid).order_by(Note.created_at.desc()).all()
     
     # 3. Notes shared with me
@@ -1191,7 +1425,7 @@ def notes():
                 "description": n.description, "file_url": file_url, "file_name": n.file_name,
                 "file_type": n.file_type, "uploader_name": n.uploader_name, "uploader_role": n.uploader_role,
                 "shared_by_name": s.sender_name, "shared_at": s.created_at.strftime("%b %d, %Y") if s.created_at else "",
-                "created_at": n.created_at.isoformat() if n.created_at else ""
+                "created_at": n.created_at.strftime("%b %d, %Y") if n.created_at else ""
             })
             
     public_items = []
@@ -1202,7 +1436,7 @@ def notes():
             "description": d.description, "file_url": file_url, "file_name": d.file_name,
             "file_type": d.file_type, "uploader_uid": d.uploader_uid, "uploader_name": d.uploader_name,
             "uploader_role": d.uploader_role, "visibility": d.visibility or "public",
-            "created_at": d.created_at.isoformat() if d.created_at else ""
+            "created_at": d.created_at.strftime("%b %d, %Y") if d.created_at else ""
         })
         
     my_items = []
@@ -1213,7 +1447,7 @@ def notes():
             "description": d.description, "file_url": file_url, "file_name": d.file_name,
             "file_type": d.file_type, "uploader_uid": d.uploader_uid, "uploader_name": d.uploader_name,
             "uploader_role": d.uploader_role, "visibility": d.visibility or "public",
-            "created_at": d.created_at.isoformat() if d.created_at else ""
+            "created_at": d.created_at.strftime("%b %d, %Y") if d.created_at else ""
         })
         
     classmates_list = [{"id": u.id, "name": u.name, "department": u.department or "", "roll": u.roll_number or ""} for u in User.query.filter(User.role == "student", User.id != uid).order_by(User.name).all()]
@@ -1225,13 +1459,18 @@ def notes():
         shared_notes=shared_notes,
         classmates=classmates_list,
         departments=DEPARTMENTS,
+        faculty_classes=faculty_classes,
         active_tab=view_tab
     )
 
 @app.route("/notes/upload", methods=["GET", "POST"])
 @login_required
 def upload_note():
+    role = session.get("role")
+    user_obj = User.query.get(session["uid"])
+    faculty_classes = get_faculty_classes(user_obj) if role == "faculty" else DEPARTMENTS
     classmates_list = [{"id": u.id, "name": u.name, "department": u.department or ""} for u in User.query.filter(User.role == "student", User.id != session["uid"]).order_by(User.name).all()]
+    
     if request.method == "POST":
         uid = session["uid"]
         user = get_current_user()
@@ -1240,16 +1479,16 @@ def upload_note():
 
         if not title or not file or not file.filename:
             flash("Title and file are required.", "danger")
-            return render_template("notes_form.html", departments=DEPARTMENTS, classmates=classmates_list)
+            return render_template("notes_form.html", departments=DEPARTMENTS, faculty_classes=faculty_classes, classmates=classmates_list)
 
         if not allowed_file(file.filename):
             flash("File type not allowed.", "danger")
-            return render_template("notes_form.html", departments=DEPARTMENTS, classmates=classmates_list)
+            return render_template("notes_form.html", departments=DEPARTMENTS, faculty_classes=faculty_classes, classmates=classmates_list)
 
         file_data = file.read()
         if len(file_data) > MAX_FILE_SIZE_MB * 1024 * 1024:
             flash(f"File too large. Maximum size is {MAX_FILE_SIZE_MB}MB.", "danger")
-            return render_template("notes_form.html", departments=DEPARTMENTS, classmates=classmates_list)
+            return render_template("notes_form.html", departments=DEPARTMENTS, faculty_classes=faculty_classes, classmates=classmates_list)
 
         try:
             ext = file.filename.rsplit(".", 1)[1].lower()
@@ -1261,7 +1500,7 @@ def upload_note():
             db.session.add(uploaded_file)
             db.session.flush()
             
-            visibility = request.form.get("visibility", "public")
+            visibility = request.form.get("visibility", "public").strip().lower()
             if visibility not in ("public", "private", "shared"):
                 visibility = "public"
                 
@@ -1283,7 +1522,7 @@ def upload_note():
             
             # If shared with specific student on upload
             share_with = request.form.get("share_with_uid", "").strip()
-            if share_with:
+            if share_with and visibility == "shared":
                 target_student = User.query.get(share_with)
                 if target_student:
                     share_rec = NoteShare(
@@ -1296,16 +1535,16 @@ def upload_note():
                     db.session.add(share_rec)
 
             db.session.commit()
-            log_activity(session["uid"], session.get("name"), session.get("role"), "notes_uploaded", "Notes", f"Uploaded note: '{title}' ({note.subject})")
-            flash("Note uploaded successfully.", "success")
+            log_activity(session["uid"], session.get("name"), session.get("role"), "notes_uploaded", "Notes", f"Uploaded note: '{title}' ({note.subject}) - Visibility: {visibility}")
+            flash(f"Note uploaded successfully with {visibility.capitalize()} visibility.", "success")
             return redirect(url_for("notes", tab="my"))
         except Exception as e:
             app.logger.error(f"Storage upload error: {e}")
             db.session.rollback()
             flash("File upload failed.", "danger")
-            return render_template("notes_form.html", departments=DEPARTMENTS, classmates=classmates_list)
+            return render_template("notes_form.html", departments=DEPARTMENTS, faculty_classes=faculty_classes, classmates=classmates_list)
             
-    return render_template("notes_form.html", departments=DEPARTMENTS, classmates=classmates_list)
+    return render_template("notes_form.html", departments=DEPARTMENTS, faculty_classes=faculty_classes, classmates=classmates_list)
 
 @app.route("/notes/<note_id>/delete", methods=["POST"])
 @login_required
@@ -1388,7 +1627,7 @@ def share_note(note_id):
     return redirect(url_for("notes"))
 
 # ===========================================================================
-# DOUBTS
+# DOUBTS (ASK & SOLVE DOUBTS)
 # ===========================================================================
 
 @app.route("/doubts")
@@ -1396,22 +1635,54 @@ def share_note(note_id):
 def doubts():
     uid = session["uid"]
     role = session.get("role")
+    user_obj = User.query.get(uid)
+    my_classes = get_faculty_classes(user_obj) if role == "faculty" else []
+    selected_class = request.args.get("class", "all").strip()
+    status_filter = request.args.get("status", "all").strip()
+    
     query = Doubt.query.order_by(Doubt.created_at.desc())
     
     if role == "student":
         query = query.filter_by(asker_uid=uid)
-    elif role in ("faculty", "club"):
+    elif role == "faculty":
+        # Faculty sees doubts targeted directly to them OR from students in classes they teach
+        if selected_class != "all" and selected_class in my_classes:
+            query = query.filter(
+                (Doubt.target_uid == uid) |
+                (Doubt.department == selected_class) |
+                (Doubt.department.ilike(f"%{selected_class}%"))
+            )
+        else:
+            selected_class = "all"
+            class_conditions = [(Doubt.department == c) | (Doubt.department.ilike(f"%{c}%")) for c in my_classes]
+            if class_conditions:
+                query = query.filter(db.or_(*class_conditions, Doubt.target_uid == uid))
+            else:
+                query = query.filter_by(target_uid=uid)
+                
+        if status_filter == "pending":
+            query = query.filter(Doubt.answered == False)
+        elif status_filter == "solved":
+            query = query.filter(Doubt.answered == True)
+    elif role == "club":
         query = query.filter_by(target_uid=uid)
         
     docs = query.all()
     items = [{
         "id": d.id, "question": d.question, "asker_name": d.asker_name, "asker_uid": d.asker_uid,
         "target_name": d.target_name, "target_uid": d.target_uid, "target_type": d.target_type,
-        "department": d.department, "answer": d.answer, "answered": d.answered,
-        "answered_at": d.answered_at.isoformat() if d.answered_at else "",
-        "created_at": d.created_at.isoformat() if d.created_at else ""
+        "department": d.department or "General", "answer": d.answer, "answered": d.answered,
+        "answered_at": d.answered_at.strftime("%b %d, %Y %H:%M") if d.answered_at else "",
+        "created_at": d.created_at.strftime("%b %d, %Y %H:%M") if d.created_at else ""
     } for d in docs]
-    return render_template("doubts.html", doubts=items)
+    
+    return render_template(
+        "doubts.html",
+        doubts=items,
+        my_classes=my_classes,
+        selected_class=selected_class,
+        status_filter=status_filter
+    )
 
 @app.route("/doubts/ask", methods=["GET", "POST"])
 @role_required("student")
@@ -1436,7 +1707,7 @@ def ask_doubt():
             target_type=request.form.get("target_type", "faculty"),
             asker_uid=uid,
             asker_name=user.get("name", "Unknown") if user else "Unknown",
-            department=request.form.get("department", ""),
+            department=request.form.get("department", user.get("department", "") if user else ""),
         )
         db.session.add(doubt)
         db.session.commit()
@@ -1455,17 +1726,36 @@ def answer_doubt(doubt_id):
         return redirect(url_for("doubts"))
         
     doubt = Doubt.query.get(doubt_id)
-    if doubt and doubt.target_uid == session["uid"]:
+    if not doubt:
+        flash("Doubt not found.", "danger")
+        return redirect(url_for("doubts"))
+        
+    uid = session["uid"]
+    role = session.get("role")
+    user_obj = User.query.get(uid)
+    my_classes = get_faculty_classes(user_obj) if role == "faculty" else []
+    
+    can_answer = (doubt.target_uid == uid) or (role == "admin") or (
+        role == "faculty" and (
+            not doubt.department or
+            any(c.lower() in (doubt.department or "").lower() for c in my_classes)
+        )
+    )
+    if can_answer:
         doubt.answer = answer
         doubt.answered = True
+        doubt.target_uid = uid
+        doubt.target_name = session.get("name", "Faculty")
         doubt.answered_at = datetime.now(timezone.utc)
         db.session.commit()
         log_activity(session["uid"], session.get("name"), session.get("role"), "doubt_answered", "Doubts", f"Answered doubt for {doubt.asker_name}")
-        flash("Answer submitted successfully.", "success")
+        flash("Solution submitted successfully.", "success")
+    else:
+        flash("Permission denied to answer this doubt.", "danger")
     return redirect(url_for("doubts"))
 
 # ===========================================================================
-# QUIZZES
+# QUIZZES (ACTIVE NOW / INACTIVE NOW, CLASS TARGETING, EDIT & DELETE)
 # ===========================================================================
 
 @app.route("/quizzes")
@@ -1473,13 +1763,29 @@ def answer_doubt(doubt_id):
 def quizzes():
     uid = session["uid"]
     role = session.get("role")
+    user_obj = User.query.get(uid)
+    faculty_classes = get_faculty_classes(user_obj) if role == "faculty" else DEPARTMENTS
     
-    docs = Quiz.query.order_by(Quiz.created_at.desc()).all()
+    query = Quiz.query.order_by(Quiz.created_at.desc())
+    if role == "faculty":
+        query = query.filter_by(creator_uid=uid)
+    elif role == "student":
+        # Students should only be able to attempt active quizzes available to their class
+        query = query.filter(Quiz.is_active == True)
+        user = get_current_user()
+        st_dept = user.get("department", "") if user else ""
+        if st_dept:
+            query = query.filter(
+                (Quiz.department == "") |
+                (Quiz.department == None) |
+                (Quiz.department == "All My Classes") |
+                (Quiz.department == st_dept) |
+                (Quiz.department.ilike(f"%{st_dept}%"))
+            )
+            
+    docs = query.all()
     items = []
     for d in docs:
-        if role == "faculty" and d.creator_uid != uid:
-            continue
-            
         questions = []
         try:
             questions = json.loads(d.questions) if d.questions else []
@@ -1494,23 +1800,36 @@ def quizzes():
                 my_result = {"score": r.score, "total": r.total}
                 
         items.append({
-            "id": d.id, "title": d.title, "department": d.department, "creator_name": d.creator_name,
+            "id": d.id, "title": d.title, "department": d.department or "All Classes",
+            "description": d.description or "", "creator_name": d.creator_name,
             "creator_uid": d.creator_uid, "is_active": d.is_active,
+            "start_time": d.start_time or "", "end_time": d.end_time or "",
             "questions_count": len(questions),
             "attempts_count": attempts_count,
             "my_result": my_result,
-            "created_at": d.created_at.isoformat() if d.created_at else ""
+            "created_at": d.created_at.strftime("%b %d, %Y") if d.created_at else ""
         })
-    return render_template("quizzes.html", quizzes=items)
+    return render_template("quizzes.html", quizzes=items, faculty_classes=faculty_classes)
 
 @app.route("/quizzes/create", methods=["GET", "POST"])
 @role_required("faculty")
 def create_quiz():
+    user_obj = User.query.get(session["uid"])
+    faculty_classes = get_faculty_classes(user_obj)
+    
     if request.method == "POST":
         uid = session["uid"]
         user = get_current_user()
         title = request.form.get("title", "").strip()
+        description = request.form.get("description", "").strip()
+        department = request.form.get("department", "").strip()
         questions_json = request.form.get("questions_json", "[]")
+        
+        status_input = request.form.get("status", "active").strip().lower()
+        is_active = (status_input in ("active", "active now", "true", "1"))
+        
+        start_time = request.form.get("start_time", "").strip()
+        end_time = request.form.get("end_time", "").strip()
         
         try:
             questions = json.loads(questions_json)
@@ -1519,22 +1838,96 @@ def create_quiz():
             
         if not title or not questions:
             flash("Title and at least one valid question are required.", "danger")
-            return render_template("quiz_form.html", departments=DEPARTMENTS)
+            return render_template("quiz_form.html", departments=DEPARTMENTS, faculty_classes=faculty_classes)
             
         quiz = Quiz(
             title=title,
-            department=request.form.get("department", ""),
+            description=description,
+            department=department,
             questions=json.dumps(questions),
             creator_uid=uid,
-            creator_name=user.get("name", "Unknown") if user else "Unknown"
+            creator_name=user.get("name", "Unknown") if user else "Unknown",
+            is_active=is_active,
+            start_time=start_time,
+            end_time=end_time
         )
         db.session.add(quiz)
         db.session.commit()
-        log_activity(session["uid"], session.get("name"), session.get("role"), "quiz_created", "Quizzes", f"Created quiz: '{title}' ({quiz.department})")
-        flash("Quiz created successfully.", "success")
+        log_activity(session["uid"], session.get("name"), session.get("role"), "quiz_created", "Quizzes", f"Created quiz: '{title}' ({quiz.department}) - Status: {'Active' if is_active else 'Inactive'}")
+        flash(f"Quiz '{title}' created successfully ({'Active Now' if is_active else 'Inactive Now'}).", "success")
         return redirect(url_for("quizzes"))
         
-    return render_template("quiz_form.html", departments=DEPARTMENTS)
+    return render_template("quiz_form.html", departments=DEPARTMENTS, faculty_classes=faculty_classes)
+
+@app.route("/quizzes/<quiz_id>/edit", methods=["GET", "POST"])
+@role_required("faculty")
+def edit_quiz(quiz_id):
+    quiz_obj = Quiz.query.get_or_404(quiz_id)
+    if quiz_obj.creator_uid != session["uid"] and session.get("role") != "admin":
+        flash("Permission denied. You can only edit your own quizzes.", "danger")
+        return redirect(url_for("quizzes"))
+        
+    user_obj = User.query.get(session["uid"])
+    faculty_classes = get_faculty_classes(user_obj)
+    
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        description = request.form.get("description", "").strip()
+        department = request.form.get("department", "").strip()
+        questions_json = request.form.get("questions_json", "[]")
+        
+        status_input = request.form.get("status", "active").strip().lower()
+        is_active = (status_input in ("active", "active now", "true", "1"))
+        
+        start_time = request.form.get("start_time", "").strip()
+        end_time = request.form.get("end_time", "").strip()
+        
+        try:
+            questions = json.loads(questions_json)
+        except Exception:
+            questions = []
+            
+        if not title or not questions:
+            flash("Title and at least one question are required.", "danger")
+            quiz_dict = {
+                "id": quiz_obj.id, "title": title, "department": department,
+                "description": description, "is_active": is_active,
+                "start_time": start_time, "end_time": end_time,
+                "questions": questions, "questions_json": questions_json
+            }
+            return render_template("quiz_form.html", quiz=quiz_dict, departments=DEPARTMENTS, faculty_classes=faculty_classes)
+            
+        quiz_obj.title = title
+        quiz_obj.description = description
+        quiz_obj.department = department
+        quiz_obj.questions = json.dumps(questions)
+        quiz_obj.is_active = is_active
+        quiz_obj.start_time = start_time
+        quiz_obj.end_time = end_time
+        
+        db.session.commit()
+        log_activity(session["uid"], session.get("name"), session.get("role"), "quiz_updated", "Quizzes", f"Updated quiz: '{title}'")
+        flash(f"Quiz '{title}' updated successfully.", "success")
+        return redirect(url_for("quizzes"))
+        
+    questions = []
+    try:
+        questions = json.loads(quiz_obj.questions) if quiz_obj.questions else []
+    except Exception:
+        questions = []
+        
+    quiz_dict = {
+        "id": quiz_obj.id,
+        "title": quiz_obj.title,
+        "department": quiz_obj.department or "",
+        "description": quiz_obj.description or "",
+        "is_active": quiz_obj.is_active,
+        "start_time": quiz_obj.start_time or "",
+        "end_time": quiz_obj.end_time or "",
+        "questions": questions,
+        "questions_json": json.dumps(questions)
+    }
+    return render_template("quiz_form.html", quiz=quiz_dict, departments=DEPARTMENTS, faculty_classes=faculty_classes)
 
 @app.route("/quizzes/<quiz_id>/attempt", methods=["GET", "POST"])
 @role_required("student")
@@ -1542,6 +1935,10 @@ def attempt_quiz(quiz_id):
     quiz_obj = Quiz.query.get_or_404(quiz_id)
     uid = session["uid"]
     
+    if not quiz_obj.is_active:
+        flash("This quiz is currently inactive and cannot be attempted.", "warning")
+        return redirect(url_for("quizzes"))
+        
     existing = QuizResult.query.filter_by(quiz_id=quiz_id, student_uid=uid).first()
     if existing:
         flash("You have already attempted this quiz.", "info")
@@ -1662,8 +2059,8 @@ def toggle_quiz(quiz_id):
         return redirect(url_for("quizzes"))
     quiz_obj.is_active = not quiz_obj.is_active
     db.session.commit()
-    status_txt = "active" if quiz_obj.is_active else "inactive"
-    flash(f"Quiz '{quiz_obj.title}' is now {status_txt}.", "success")
+    status_txt = "ACTIVE NOW" if quiz_obj.is_active else "INACTIVE NOW"
+    flash(f"Quiz '{quiz_obj.title}' status changed to {status_txt}.", "success")
     return redirect(url_for("quizzes"))
 
 @app.route("/quizzes/<quiz_id>/delete", methods=["POST"])
@@ -1676,7 +2073,7 @@ def delete_quiz(quiz_id):
     QuizResult.query.filter_by(quiz_id=quiz_id).delete()
     db.session.delete(quiz_obj)
     db.session.commit()
-    flash("Quiz and all attempt records deleted.", "success")
+    flash(f"Quiz '{quiz_obj.title}' and all attempt records deleted.", "success")
     return redirect(url_for("quizzes"))
 
 # ===========================================================================

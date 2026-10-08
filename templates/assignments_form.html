@@ -33,10 +33,12 @@
 
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label" for="department">Target Department</label>
-            <select id="department" name="department" class="form-control">
-              <option value="">All Departments</option>
-              {% for dept in departments %}
+            <label class="form-label" for="department">Target Class / Department <span class="required">*</span></label>
+            <select id="department" name="department" class="form-control" required>
+              <option value="">-- Select Target Class --</option>
+              <option value="All My Classes" {{ 'selected' if assignment and assignment.department == 'All My Classes' }}>All My Classes</option>
+              {% set class_list = faculty_classes if faculty_classes else departments %}
+              {% for dept in class_list %}
                 <option value="{{ dept }}" {{ 'selected' if assignment and assignment.department == dept }}>{{ dept }}</option>
               {% endfor %}
             </select>

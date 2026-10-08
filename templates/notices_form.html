@@ -25,14 +25,16 @@
 
         {% if current_user.role in ('faculty', 'admin') %}
           <div class="form-group">
-            <label class="form-label" for="department">Target Department</label>
+            <label class="form-label" for="department">Target Class / Department</label>
             <select id="department" name="department" class="form-control">
               <option value="">All Departments (Campus-wide)</option>
-              {% for dept in departments %}
+              <option value="All My Classes" {{ 'selected' if notice and notice.department == 'All My Classes' }}>All My Classes</option>
+              {% set class_list = faculty_classes if faculty_classes else departments %}
+              {% for dept in class_list %}
                 <option value="{{ dept }}" {{ 'selected' if notice and notice.department == dept }}>{{ dept }}</option>
               {% endfor %}
             </select>
-            <div class="form-hint">Leave empty to show notice across all departments.</div>
+            <div class="form-hint">Publish to a specific class you teach, or leave campus-wide.</div>
           </div>
         {% endif %}
 

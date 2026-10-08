@@ -33,8 +33,9 @@
   <form method="GET" action="{{ url_for('notes') }}" style="display:flex;gap:8px;align-items:center">
     <input type="hidden" name="tab" value="{{ active_tab or 'all' }}">
     <select name="department" class="form-control" style="width:auto;min-width:200px" onchange="this.form.submit()">
-      <option value="">All Departments</option>
-      {% for dept in departments %}
+      <option value="">All Departments / Classes</option>
+      {% set dept_choices = faculty_classes if (current_user.role == 'faculty' and faculty_classes) else departments %}
+      {% for dept in dept_choices %}
         <option value="{{ dept }}" {{ 'selected' if request.args.get('department') == dept }}>{{ dept }}</option>
       {% endfor %}
     </select>
@@ -59,7 +60,7 @@
                 <div class="item-card-title truncate" title="{{ note.title }}">{{ note.title }}</div>
                 <div style="font-size:12px;color:var(--gray-500);margin-top:3px">
                   {% if note.subject %}<strong style="color:var(--gray-700)">{{ note.subject }}</strong> · {% endif %}
-                  {{ note.file_type.upper() }}
+                  {{ (note.file_type or 'doc').upper() }}
                 </div>
               </div>
             </div>
@@ -81,7 +82,7 @@
 
           <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--gray-100);display:flex;gap:8px;justify-content:space-between;align-items:center">
             <a href="{{ note.file_url }}?download=1" class="btn btn-outline btn-sm">
-              ⬇️ Download ({{ note.file_type.upper() }})
+              ⬇️ Download ({{ (note.file_type or 'doc').upper() }})
             </a>
             
             <div style="display:flex;gap:6px">
@@ -127,7 +128,7 @@
                 <div class="item-card-title truncate" title="{{ note.title }}">{{ note.title }}</div>
                 <div style="font-size:12px;color:var(--gray-500);margin-top:3px">
                   {% if note.subject %}<strong style="color:var(--gray-700)">{{ note.subject }}</strong> · {% endif %}
-                  {{ note.file_type.upper() }}
+                  {{ (note.file_type or 'doc').upper() }}
                 </div>
               </div>
             </div>
@@ -186,7 +187,7 @@
                 <div class="item-card-title truncate" title="{{ note.title }}">{{ note.title }}</div>
                 <div style="font-size:12px;color:var(--gray-500);margin-top:3px">
                   {% if note.subject %}<strong style="color:var(--gray-700)">{{ note.subject }}</strong> · {% endif %}
-                  {{ note.file_type.upper() }}
+                  {{ (note.file_type or 'doc').upper() }}
                 </div>
               </div>
             </div>

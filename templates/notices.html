@@ -23,8 +23,9 @@
   </div>
   <form method="GET" action="{{ url_for('notices') }}" style="display:flex;gap:8px;align-items:center">
     <select name="department" class="form-control" style="width:auto;min-width:200px" onchange="this.form.submit()">
-      <option value="">All Departments</option>
-      {% for dept in departments %}
+      <option value="">All Departments / Classes</option>
+      {% set dept_choices = faculty_classes if (current_user.role == 'faculty' and faculty_classes) else departments %}
+      {% for dept in dept_choices %}
         <option value="{{ dept }}" {{ 'selected' if request.args.get('department') == dept }}>{{ dept }}</option>
       {% endfor %}
     </select>

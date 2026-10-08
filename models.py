@@ -146,6 +146,9 @@ class Quiz(db.Model):
     creator_uid = db.Column(db.String(36), db.ForeignKey('users.id'))
     creator_name = db.Column(db.String(100))
     is_active = db.Column(db.Boolean, default=True)
+    start_time = db.Column(db.String(50), nullable=True)
+    end_time = db.Column(db.String(50), nullable=True)
+    description = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
 
 class QuizResult(db.Model):
@@ -277,6 +280,14 @@ def init_db_and_migrate(app):
                     existing_cols = [c['name'] for c in inspector.get_columns('notes')]
                     if 'visibility' not in existing_cols:
                         conn.execute(text("ALTER TABLE notes ADD COLUMN visibility VARCHAR(20) DEFAULT 'public'"))
+                if 'quizzes' in table_names:
+                    existing_cols = [c['name'] for c in inspector.get_columns('quizzes')]
+                    if 'start_time' not in existing_cols:
+                        conn.execute(text("ALTER TABLE quizzes ADD COLUMN start_time VARCHAR(50)"))
+                    if 'end_time' not in existing_cols:
+                        conn.execute(text("ALTER TABLE quizzes ADD COLUMN end_time VARCHAR(50)"))
+                    if 'description' not in existing_cols:
+                        conn.execute(text("ALTER TABLE quizzes ADD COLUMN description TEXT"))
                 conn.commit()
         except Exception as e:
             app.logger.warning(f"Database migration check warning: {e}")

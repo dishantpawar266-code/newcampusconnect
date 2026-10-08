@@ -1,220 +1,339 @@
 {% extends "base.html" %}
 
-{% block title %}Faculty Dashboard — Campus Connect{% endblock %}
+{% block title %}Faculty LMS Portal — Campus Connect{% endblock %}
 {% block header_title %}Faculty Portal{% endblock %}
 
 {% block content %}
 
-<!-- Personalized Welcome Banner -->
-<div class="welcome-banner">
+<!-- Faculty LMS Header & Greeting -->
+<div class="welcome-banner" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-left: 5px solid var(--primary);">
   <div class="welcome-banner-content">
     <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
       <div>
-        <h1 class="welcome-heading">
-          Good <span id="greeting-time">day</span>, {{ session.get('name', 'Professor').split(' ')[0] }} 👋
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+          <span style="background:rgba(99,102,241,0.25); color:#a5b4fc; font-size:0.75rem; font-weight:700; padding:3px 10px; border-radius:999px; text-transform:uppercase; letter-spacing:0.05em; border:1px solid rgba(165,180,252,0.3);">
+            LMS Faculty Portal
+          </span>
+          <span style="color:var(--gray-400); font-size:0.8rem;">Academic Management</span>
+        </div>
+        <h1 class="welcome-heading" style="color:#ffffff; font-size:1.85rem; font-weight:800; letter-spacing:-0.02em;">
+          Welcome, {{ session.get('name', 'Faculty Member') }} 👋
         </h1>
-        <p class="welcome-subheading">
-          Faculty Management Portal. Coordinate coursework, track student submissions, answer doubts, and conduct quizzes.
+        <p class="welcome-subheading" style="color:#cbd5e1; max-width:680px; font-size:0.95rem; margin-top:4px;">
+          Manage assigned classes, track student enrollments, publish targeted coursework, conduct quizzes, and solve academic doubts.
         </p>
-        <div class="welcome-badge-row">
-          <span class="welcome-badge">
-            <span>👨‍🏫</span> Faculty
+        <div class="welcome-badge-row" style="margin-top:14px;">
+          <span class="welcome-badge" style="background:rgba(255,255,255,0.08); color:#f1f5f9; border:1px solid rgba(255,255,255,0.15);">
+            <span>👨‍🏫</span> {{ current_user.designation or 'Faculty' }}
           </span>
-          {% if current_user.designation %}
-          <span class="welcome-badge">
-            <span>🏷️</span> {{ current_user.designation }}
+          <span class="welcome-badge" style="background:rgba(255,255,255,0.08); color:#f1f5f9; border:1px solid rgba(255,255,255,0.15);">
+            <span>🏫</span> {{ stats.my_classes|length }} Assigned Class{{ 'es' if stats.my_classes|length != 1 else '' }}
           </span>
-          {% endif %}
-          {% if current_user.departments %}
-          <span class="welcome-badge">
-            <span>🏫</span> {{ current_user.departments|join(', ') if current_user.departments is iterable and current_user.departments is not string else current_user.departments }}
+          <span class="welcome-badge" style="background:rgba(255,255,255,0.08); color:#f1f5f9; border:1px solid rgba(255,255,255,0.15);">
+            <span>👥</span> {{ stats.total_students_count }} Enrolled Students
           </span>
-          {% endif %}
-          <span class="welcome-badge" id="live-date-badge">
-            <span>📅</span> <span id="current-date-text">Academic Session</span>
+          <span class="welcome-badge" style="background:rgba(255,255,255,0.08); color:#f1f5f9; border:1px solid rgba(255,255,255,0.15);">
+            <span>📅</span> <span id="current-date-text">Current Term</span>
           </span>
         </div>
       </div>
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <a href="{{ url_for('create_assignment') }}" class="btn btn-primary btn-sm">+ New Assignment</a>
-        <a href="{{ url_for('create_quiz') }}" class="btn btn-outline btn-sm" style="background:white;">+ Create Quiz</a>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-self:center;">
+        <a href="{{ url_for('faculty_students') }}" class="btn btn-outline btn-sm" style="background:rgba(255,255,255,0.08); color:#ffffff; border-color:rgba(255,255,255,0.25);">
+          👥 Students Roster
+        </a>
+        <a href="{{ url_for('create_assignment') }}" class="btn btn-primary btn-sm">
+          + New Assignment
+        </a>
+        <a href="{{ url_for('create_quiz') }}" class="btn btn-secondary btn-sm" style="color:white;">
+          + Build Quiz
+        </a>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Faculty Key Management KPI Cards -->
-<div class="quick-cards-grid">
-  <!-- Pending Doubts -->
+<!-- CLASS SELECTOR TABS (Requirements 6 & 11) -->
+<div class="card mb-6" style="padding:16px 20px; border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); border:1px solid var(--gray-200);">
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
+    <div>
+      <h3 style="font-size:1.05rem; font-weight:700; color:var(--gray-900); margin:0;">
+        🏫 Classes You Teach — Quick Switcher
+      </h3>
+      <p style="font-size:0.8rem; color:var(--gray-500); margin:2px 0 0;">
+        Switch class context to filter student rosters, notices, coursework, quizzes, and doubts.
+      </p>
+    </div>
+    {% if stats.active_class != 'all' %}
+      <a href="{{ url_for('dashboard', **{'class': 'all'}) }}" class="btn btn-ghost btn-xs" style="color:var(--primary); font-weight:600;">
+        Reset to All Classes ✕
+      </a>
+    {% endif %}
+  </div>
+
+  <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+    <a href="{{ url_for('dashboard', **{'class': 'all'}) }}"
+       class="btn btn-sm {% if stats.active_class == 'all' %}btn-primary{% else %}btn-ghost{% endif %}"
+       style="border-radius:999px; font-weight:600; padding:6px 14px; font-size:0.85rem;">
+      🌐 All Classes ({{ stats.total_students_count }} Students)
+    </a>
+
+    {% for cs in stats.class_stats %}
+      <a href="{{ url_for('dashboard', **{'class': cs.class_name}) }}"
+         class="btn btn-sm {% if cs.is_active %}btn-primary{% else %}btn-outline{% endif %}"
+         style="border-radius:999px; font-weight:600; padding:6px 14px; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px;">
+        <span>🎓 {{ cs.class_name }}</span>
+        <span style="background:{% if cs.is_active %}rgba(255,255,255,0.25){% else %}var(--gray-100){% endif %}; color:{% if cs.is_active %}#ffffff{% else %}var(--gray-700){% endif %}; padding:2px 7px; border-radius:999px; font-size:0.75rem;">
+          {{ cs.student_count }}
+        </span>
+      </a>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- REAL STUDENT COUNT PER CLASS CARDS (Requirement 11) -->
+<div class="mb-6">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <div>
+      <h3 style="font-size:1.15rem; font-weight:700; color:var(--gray-900); margin:0;">
+        👥 Assigned Classes & Real Student Enrolment
+      </h3>
+      <span style="font-size:0.8rem; color:var(--gray-500);">Live count from registered user records</span>
+    </div>
+    <a href="{{ url_for('faculty_students') }}" class="btn btn-ghost btn-sm" style="color:var(--primary); font-weight:600;">
+      View Full Student Directory →
+    </a>
+  </div>
+
+  <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:16px;">
+    {% for cs in stats.class_stats %}
+      <div class="card" style="padding:18px 20px; border-radius:var(--radius-md); border:1px solid {% if cs.is_active %}var(--primary){% else %}var(--gray-200){% endif %}; background:{% if cs.is_active %}rgba(99,102,241,0.03){% else %}#ffffff{% endif %}; transition:all 0.2s ease; position:relative; overflow:hidden;">
+        {% if cs.is_active %}
+          <div style="position:absolute; top:0; left:0; right:0; height:3px; background:var(--primary);"></div>
+        {% endif %}
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+          <span style="font-size:1.6rem;">🏫</span>
+          <span class="badge badge-{% if cs.student_count > 0 %}blue{% else %}gray{% endif %}" style="font-size:0.72rem;">
+            {{ cs.student_count }} Enrolled
+          </span>
+        </div>
+        <div style="font-weight:700; font-size:1.05rem; color:var(--gray-900); line-height:1.3; margin-bottom:4px;">
+          {{ cs.class_name }}
+        </div>
+        <div style="font-size:1.7rem; font-weight:800; color:var(--primary); margin:6px 0;">
+          {{ cs.student_count }} <span style="font-size:0.85rem; font-weight:500; color:var(--gray-500);">Students</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding-top:10px; border-top:1px dashed var(--gray-200);">
+          <a href="{{ url_for('faculty_students', **{'class': cs.class_name}) }}" class="btn btn-ghost btn-xs" style="padding:0; color:var(--primary); font-weight:600;">
+            View Students →
+          </a>
+          <a href="{{ url_for('create_assignment', **{'department': cs.class_name}) }}" class="btn btn-ghost btn-xs" style="padding:0; color:var(--gray-500);">
+            + Assign
+          </a>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- FACULTY OVERVIEW KPI STATS (Requirement 12) -->
+<div class="quick-cards-grid mb-8">
+  <!-- Total Students -->
   <div class="stat-card bg-gradient-1">
     <div style="display:flex; justify-content:space-between; align-items:center;">
-      <div class="stat-label">Pending Student Doubts</div>
-      <span style="font-size:1.5rem; opacity:0.8;">❓</span>
+      <div class="stat-label">Total Students Enrolled</div>
+      <span style="font-size:1.5rem; opacity:0.85;">👥</span>
     </div>
-    <div class="stat-value">{{ stats.pending_doubts_count }}</div>
-    <div style="font-size:0.85rem; margin-top:14px; opacity:0.9;">
-      {% if stats.pending_doubts_count > 0 %}
-        {{ stats.pending_doubts_count }} student question(s) awaiting your response
-      {% else %}
-        All student doubts have been answered
-      {% endif %}
+    <div class="stat-value">{{ stats.total_students_count }}</div>
+    <div style="font-size:0.82rem; margin-top:12px; opacity:0.9;">
+      Registered students across your {{ stats.my_classes|length }} assigned classes
     </div>
   </div>
 
-  <!-- Active Assignments & Submissions -->
-  <div class="stat-card bg-gradient-2">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <div class="stat-label">Assignments & Submissions</div>
-      <span style="font-size:1.5rem; opacity:0.8;">📋</span>
-    </div>
-    <div class="stat-value">{{ stats.total_assignments_count }} <span style="font-size:1.1rem; font-weight:400; opacity:0.85;">({{ stats.total_submissions_count }} submitted)</span></div>
-    <div style="font-size:0.85rem; margin-top:14px; opacity:0.9;">
-      {{ stats.total_submissions_count }} student coursework submission(s) received
-    </div>
-  </div>
-
-  <!-- Interactive Quizzes -->
+  <!-- Active Quizzes -->
   <div class="stat-card bg-gradient-3">
     <div style="display:flex; justify-content:space-between; align-items:center;">
-      <div class="stat-label">Quizzes & Attempts</div>
-      <span style="font-size:1.5rem; opacity:0.8;">🏆</span>
+      <div class="stat-label">Active Quizzes</div>
+      <span style="font-size:1.5rem; opacity:0.85;">🏆</span>
     </div>
-    <div class="stat-value">{{ stats.total_quizzes_count }} <span style="font-size:1.1rem; font-weight:400; opacity:0.85;">({{ stats.total_attempts_count }} attempts)</span></div>
-    <div style="font-size:0.85rem; margin-top:14px; opacity:0.9;">
-      {{ stats.total_attempts_count }} total student test response(s) logged
+    <div class="stat-value">
+      {{ stats.active_quizzes_count }}
+      <span style="font-size:1rem; font-weight:500; opacity:0.85;">/ {{ stats.total_quizzes_count }} Total</span>
+    </div>
+    <div style="font-size:0.82rem; margin-top:12px; opacity:0.9;">
+      {{ stats.total_attempts_count }} student attempt(s) submitted
+    </div>
+  </div>
+
+  <!-- Pending Doubts -->
+  <div class="stat-card bg-gradient-2">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="stat-label">Pending Student Doubts</div>
+      <span style="font-size:1.5rem; opacity:0.85;">💬</span>
+    </div>
+    <div class="stat-value">{{ stats.pending_doubts_count }}</div>
+    <div style="font-size:0.82rem; margin-top:12px; opacity:0.9;">
+      {{ stats.solved_doubts_count }} resolved questions
+    </div>
+  </div>
+
+  <!-- Coursework & Submissions -->
+  <div class="stat-card bg-gradient-1" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="stat-label">Active Assignments</div>
+      <span style="font-size:1.5rem; opacity:0.85;">📋</span>
+    </div>
+    <div class="stat-value">{{ stats.total_assignments_count }}</div>
+    <div style="font-size:0.82rem; margin-top:12px; opacity:0.9;">
+      {{ stats.total_submissions_count }} student submission(s) received
     </div>
   </div>
 </div>
 
-<!-- Explore & Quick Actions Section -->
+<!-- LMS Management Quick Action Bar -->
 <div class="flex items-center justify-between mb-4">
-  <h3 style="font-size:1.25rem; font-weight:700;">Faculty Management Actions</h3>
-  <span style="font-size:0.85rem; color:var(--gray-500);">Quick Shortcuts</span>
+  <h3 style="font-size:1.2rem; font-weight:700; color:var(--gray-900); margin:0;">
+    ⚡ Operational Management Actions
+  </h3>
+  <span style="font-size:0.82rem; color:var(--gray-500);">Faculty LMS Shortcuts</span>
 </div>
 
-<div class="quick-actions-grid">
-  <!-- Assignments -->
+<div class="quick-actions-grid mb-8">
+  <a href="{{ url_for('faculty_students') }}" class="action-card">
+    <div class="action-icon blue">👥</div>
+    <div class="action-info">
+      <h4>Students Roster</h4>
+      <p>View registered students by class, roll & email</p>
+    </div>
+  </a>
+
+  <a href="{{ url_for('doubts') }}" class="action-card">
+    <div class="action-icon rose">💬</div>
+    <div class="action-info">
+      <h4>Solve Doubts</h4>
+      <p>Provide verified solutions to student queries</p>
+    </div>
+  </a>
+
   <a href="{{ url_for('create_assignment') }}" class="action-card">
     <div class="action-icon amber">📋</div>
     <div class="action-info">
-      <h4>Create Assignment</h4>
-      <p>Post coursework, set deadlines & attach files</p>
+      <h4>Post Assignment</h4>
+      <p>Target specific class, deadline & attachments</p>
     </div>
   </a>
 
-  <!-- Quizzes -->
   <a href="{{ url_for('create_quiz') }}" class="action-card">
-    <div class="action-icon blue">🏆</div>
+    <div class="action-icon purple">🏆</div>
     <div class="action-info">
-      <h4>Create Quiz</h4>
-      <p>Build online tests & view student scores</p>
+      <h4>Build Quiz</h4>
+      <p>Set Active/Inactive status, start/end & questions</p>
     </div>
   </a>
 
-  <!-- Doubts -->
-  <a href="{{ url_for('doubts') }}" class="action-card">
-    <div class="action-icon rose">❓</div>
+  <a href="{{ url_for('upload_note') }}" class="action-card">
+    <div class="action-icon indigo">📖</div>
     <div class="action-info">
-      <h4>Student Doubts</h4>
-      <p>Review & answer student academic questions</p>
+      <h4>Share Course Notes</h4>
+      <p>Upload slides & study resources by class</p>
     </div>
   </a>
 
-  <!-- Notices -->
   <a href="{{ url_for('create_notice') }}" class="action-card">
     <div class="action-icon cyan">📢</div>
     <div class="action-info">
       <h4>Publish Notice</h4>
-      <p>Post announcements with PDF or image attachments</p>
-    </div>
-  </a>
-
-  <!-- Notes -->
-  <a href="{{ url_for('upload_note') }}" class="action-card">
-    <div class="action-icon purple">📖</div>
-    <div class="action-info">
-      <h4>Upload Notes</h4>
-      <p>Share lecture slides, PDFs & syllabus units</p>
-    </div>
-  </a>
-
-  <!-- Profile -->
-  <a href="{{ url_for('profile') }}" class="action-card">
-    <div class="action-icon indigo">👤</div>
-    <div class="action-info">
-      <h4>Faculty Profile</h4>
-      <p>Update designation, departments & bio</p>
+      <p>Send targeted academic announcements</p>
     </div>
   </a>
 </div>
 
-<!-- Data Columns: Pending Doubts & Assignments -->
+<!-- SECTION: PENDING DOUBTS & RECENT ASSIGNMENTS (2 COLUMNS) -->
 <div class="grid-2 mb-8">
 
-  <!-- Pending Doubts Card -->
+  <!-- Pending Doubts (Requirement 4: Solve Doubts) -->
   <div class="card">
-    <div class="card-header">
+    <div class="card-header" style="border-bottom:1px solid var(--gray-200); padding-bottom:12px;">
       <div style="display:flex; align-items:center; gap:8px;">
-        <span style="font-size:1.2rem;">❓</span>
+        <span style="font-size:1.2rem;">💬</span>
         <h3 class="card-title" style="margin:0;">Pending Student Doubts</h3>
+        {% if stats.pending_doubts %}
+          <span class="badge badge-amber" style="font-size:0.75rem;">{{ stats.pending_doubts|length }}</span>
+        {% endif %}
       </div>
-      <a href="{{ url_for('doubts') }}" class="btn btn-ghost btn-sm">All Doubts →</a>
+      <a href="{{ url_for('doubts') }}" class="btn btn-ghost btn-sm" style="color:var(--primary); font-weight:600;">
+        Solve Doubts →
+      </a>
     </div>
 
-    <div style="display:flex; flex-direction:column; gap:12px;">
+    <div style="display:flex; flex-direction:column; gap:12px; margin-top:14px;">
       {% if stats.pending_doubts %}
         {% for doubt in stats.pending_doubts %}
-          <div style="padding:12px 14px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:var(--radius-md);">
-            <div style="font-weight:600; font-size:0.95rem; color:var(--gray-900);">{{ doubt.question }}</div>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:0.8rem; color:var(--gray-500); flex-wrap:wrap; gap:6px;">
-              <span>👤 Asked by <strong>{{ doubt.asker_name }}</strong> {% if doubt.department %}• {{ doubt.department }}{% endif %}</span>
-              <a href="{{ url_for('doubts') }}" class="btn btn-primary btn-xs">Answer →</a>
+          <div style="padding:14px 16px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:var(--radius-md); transition:all 0.2s ease;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:6px;">
+              <span class="badge badge-amber" style="font-size:0.7rem; font-weight:700;">PENDING</span>
+              <span style="font-size:0.75rem; color:var(--gray-500);">{{ doubt.created_at }}</span>
+            </div>
+            <div style="font-weight:600; font-size:0.95rem; color:var(--gray-900); line-height:1.4;">
+              {{ doubt.question }}
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:0.8rem; color:var(--gray-600); flex-wrap:wrap; gap:8px;">
+              <span>👤 <strong>{{ doubt.asker_name }}</strong> • <span style="color:var(--primary);">{{ doubt.department }}</span></span>
+              <a href="{{ url_for('doubts') }}" class="btn btn-primary btn-xs">
+                Solve Doubt →
+              </a>
             </div>
           </div>
         {% endfor %}
       {% else %}
-        <div class="empty-state">
+        <div class="empty-state" style="padding:32px 20px;">
           <div class="empty-state-icon">🎉</div>
-          <div class="empty-state-title">No Pending Doubts!</div>
-          <p class="empty-state-desc">You are all caught up with student questions. New questions will appear here.</p>
+          <div class="empty-state-title">All Student Doubts Resolved!</div>
+          <p class="empty-state-desc">There are no pending questions from your assigned classes.</p>
         </div>
       {% endif %}
     </div>
   </div>
 
-  <!-- Active Assignments Card -->
+  <!-- Recent Coursework & Assignments (Requirement 9) -->
   <div class="card">
-    <div class="card-header">
+    <div class="card-header" style="border-bottom:1px solid var(--gray-200); padding-bottom:12px;">
       <div style="display:flex; align-items:center; gap:8px;">
         <span style="font-size:1.2rem;">📋</span>
-        <h3 class="card-title" style="margin:0;">My Active Assignments</h3>
+        <h3 class="card-title" style="margin:0;">Recent Assignments</h3>
       </div>
-      <a href="{{ url_for('assignments') }}" class="btn btn-ghost btn-sm">All Assignments →</a>
+      <div style="display:flex; gap:8px;">
+        <a href="{{ url_for('create_assignment') }}" class="btn btn-primary btn-xs">+ Create</a>
+        <a href="{{ url_for('assignments') }}" class="btn btn-ghost btn-sm">All →</a>
+      </div>
     </div>
 
-    <div style="display:flex; flex-direction:column; gap:12px;">
+    <div style="display:flex; flex-direction:column; gap:12px; margin-top:14px;">
       {% if stats.assignments %}
-        {% for a in stats.assignments[:4] %}
-          <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:var(--gray-50); border-radius:var(--radius-md); border:1px solid var(--gray-200); flex-wrap:wrap; gap:10px;">
-            <div>
-              <div style="font-weight:600; font-size:0.95rem; color:var(--gray-900);">{{ a.title }}</div>
-              <div style="font-size:0.8rem; color:var(--gray-500); margin-top:2px;">
-                <span style="color:var(--primary); font-weight:500;">{{ a.subject or 'General' }}</span>
+        {% for a in stats.assignments %}
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 16px; background:var(--gray-50); border-radius:var(--radius-md); border:1px solid var(--gray-200); flex-wrap:wrap; gap:10px;">
+            <div style="max-width:70%;">
+              <div style="font-weight:700; font-size:0.95rem; color:var(--gray-900);">{{ a.title }}</div>
+              <div style="font-size:0.8rem; color:var(--gray-500); margin-top:3px;">
+                <span class="badge badge-purple" style="font-size:0.7rem; font-weight:600;">{{ a.department or 'All Classes' }}</span>
+                {% if a.subject %} • {{ a.subject }}{% endif %}
                 {% if a.deadline %} • ⏰ Due: {{ a.deadline }}{% endif %}
               </div>
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
               <span class="badge badge-blue" style="font-size:0.75rem;">{{ a.submissions_count }} submitted</span>
-              <a href="{{ url_for('view_assignment_submissions', assignment_id=a.id) }}" class="btn btn-outline btn-xs">Submissions</a>
+              <a href="{{ url_for('view_assignment_submissions', assignment_id=a.id) }}" class="btn btn-outline btn-xs">
+                Submissions
+              </a>
             </div>
           </div>
         {% endfor %}
       {% else %}
-        <div class="empty-state">
+        <div class="empty-state" style="padding:32px 20px;">
           <div class="empty-state-icon">📋</div>
-          <div class="empty-state-title">No Assignments Created</div>
-          <p class="empty-state-desc">You haven't created any assignments yet. Post assignments for your classes.</p>
-          <a href="{{ url_for('create_assignment') }}" class="btn btn-outline btn-sm">+ Create Assignment</a>
+          <div class="empty-state-title">No Assignments Posted</div>
+          <p class="empty-state-desc">Post coursework targeted to specific classes you teach.</p>
+          <a href="{{ url_for('create_assignment') }}" class="btn btn-outline btn-sm">+ Post Assignment</a>
         </div>
       {% endif %}
     </div>
@@ -222,62 +341,155 @@
 
 </div>
 
-<!-- Quizzes Management Card -->
+<!-- SECTION: QUIZZES MANAGEMENT (Requirement 10: Active Now / Inactive Now) -->
 <div class="card mb-8">
-  <div class="card-header">
+  <div class="card-header" style="border-bottom:1px solid var(--gray-200); padding-bottom:12px;">
     <div style="display:flex; align-items:center; gap:8px;">
-      <span style="font-size:1.2rem;">🏆</span>
-      <h3 class="card-title" style="margin:0;">Online Quizzes & Assessments</h3>
+      <span style="font-size:1.25rem;">🏆</span>
+      <h3 class="card-title" style="margin:0;">Class-Wise Online Quizzes</h3>
+      <span class="badge badge-green" style="font-size:0.72rem; font-weight:700;">{{ stats.active_quizzes_count }} ACTIVE NOW</span>
     </div>
     <div style="display:flex; gap:8px;">
-      <a href="{{ url_for('create_quiz') }}" class="btn btn-primary btn-sm">+ Create Quiz</a>
+      <a href="{{ url_for('create_quiz') }}" class="btn btn-primary btn-sm">+ Build Quiz</a>
       <a href="{{ url_for('quizzes') }}" class="btn btn-ghost btn-sm">All Quizzes →</a>
     </div>
   </div>
 
-  <div style="display:flex; flex-direction:column; gap:12px;">
+  <div style="display:flex; flex-direction:column; gap:12px; margin-top:14px;">
     {% if stats.quizzes %}
-      {% for q in stats.quizzes[:4] %}
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:var(--gray-50); border-radius:var(--radius-md); border:1px solid var(--gray-200); flex-wrap:wrap; gap:10px;">
-          <div>
-            <div style="font-weight:600; font-size:0.95rem; color:var(--gray-900);">
-              {{ q.title }}
-              <span class="badge badge-{{ 'green' if q.is_active else 'gray' }}" style="margin-left:6px; font-size:0.7rem;">
-                {{ 'Active' if q.is_active else 'Inactive' }}
-              </span>
+      {% for q in stats.quizzes %}
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 16px; background:var(--gray-50); border-radius:var(--radius-md); border:1px solid var(--gray-200); flex-wrap:wrap; gap:12px;">
+          <div style="max-width:65%;">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span style="font-weight:700; font-size:1rem; color:var(--gray-900);">{{ q.title }}</span>
+              {% if q.is_active %}
+                <span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:0.72rem; font-weight:700;">
+                  🟢 ACTIVE NOW
+                </span>
+              {% else %}
+                <span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-size:0.72rem; font-weight:700;">
+                  ⏸️ INACTIVE NOW
+                </span>
+              {% endif %}
+              <span class="badge badge-blue" style="font-size:0.72rem;">{{ q.department or 'All Classes' }}</span>
             </div>
-            <div style="font-size:0.8rem; color:var(--gray-500); margin-top:2px;">
-              {{ q.questions_count }} question(s) {% if q.department %}• {{ q.department }}{% endif %}
+            <div style="font-size:0.8rem; color:var(--gray-500); margin-top:4px;">
+              {{ q.questions_count }} Question(s) • {{ q.attempts_count }} Student Attempt(s) • Created: {{ q.created_at }}
             </div>
           </div>
-          <div style="display:flex; align-items:center; gap:10px;">
-            <span class="badge badge-purple" style="font-size:0.75rem;">{{ q.attempts_count }} student attempt(s)</span>
-            <a href="{{ url_for('view_quiz_results', quiz_id=q.id) }}" class="btn btn-outline btn-xs">View Results</a>
+
+          <div style="display:flex; align-items:center; gap:8px;">
+            <a href="{{ url_for('view_quiz_results', quiz_id=q.id) }}" class="btn btn-outline btn-xs">
+              📊 Results ({{ q.attempts_count }})
+            </a>
+            <a href="{{ url_for('edit_quiz', quiz_id=q.id) }}" class="btn btn-ghost btn-xs" style="color:var(--gray-700);">
+              ✏️ Edit
+            </a>
+            <form method="POST" action="{{ url_for('toggle_quiz', quiz_id=q.id) }}" style="display:inline;">
+              <button type="submit" class="btn btn-xs {% if q.is_active %}btn-outline{% else %}btn-primary{% endif %}" title="Toggle Active / Inactive status">
+                {% if q.is_active %}Deactivate{% else %}Activate Now{% endif %}
+              </button>
+            </form>
           </div>
         </div>
       {% endfor %}
     {% else %}
-      <div class="empty-state" style="padding:28px 20px;">
+      <div class="empty-state" style="padding:32px 20px;">
         <div class="empty-state-icon">🏆</div>
         <div class="empty-state-title">No Quizzes Created Yet</div>
-        <p class="empty-state-desc">Create your first quiz to assess student comprehension and track live marks.</p>
+        <p class="empty-state-desc">Create your first quiz with Active/Inactive control, questions, and automated grading.</p>
         <a href="{{ url_for('create_quiz') }}" class="btn btn-outline btn-sm">+ Build First Quiz</a>
       </div>
     {% endif %}
   </div>
 </div>
 
+<!-- SECTION: RECENT CLASS NOTICES & COURSE NOTES (2 COLUMNS) -->
+<div class="grid-2 mb-8">
+
+  <!-- Notices (Requirement 7) -->
+  <div class="card">
+    <div class="card-header" style="border-bottom:1px solid var(--gray-200); padding-bottom:12px;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:1.2rem;">📢</span>
+        <h3 class="card-title" style="margin:0;">Class Notices Published</h3>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <a href="{{ url_for('create_notice') }}" class="btn btn-primary btn-xs">+ Publish</a>
+        <a href="{{ url_for('notices') }}" class="btn btn-ghost btn-sm">All →</a>
+      </div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:10px; margin-top:14px;">
+      {% if stats.notices %}
+        {% for n in stats.notices %}
+          <div style="padding:12px 14px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:var(--radius-md);">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+              <div style="font-weight:700; font-size:0.95rem; color:var(--gray-900);">{{ n.title }}</div>
+              <span class="badge badge-purple" style="font-size:0.7rem;">{{ n.department or 'Campus-Wide' }}</span>
+            </div>
+            <p style="font-size:0.83rem; color:var(--gray-600); margin:4px 0 6px; line-height:1.4;">
+              {{ n.content[:100] }}{% if n.content|length > 100 %}...{% endif %}
+            </p>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:var(--gray-500);">
+              <span>📅 {{ n.created_at }}</span>
+              {% if n.file_name %}
+                <span style="color:var(--primary);">📎 {{ n.file_name }}</span>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state" style="padding:28px 20px;">
+          <div class="empty-state-icon">📢</div>
+          <div class="empty-state-title">No Notices Published</div>
+          <p class="empty-state-desc">Broadcast announcements to specific classes.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Notes (Requirement 8) -->
+  <div class="card">
+    <div class="card-header" style="border-bottom:1px solid var(--gray-200); padding-bottom:12px;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:1.2rem;">📖</span>
+        <h3 class="card-title" style="margin:0;">Course Notes Shared</h3>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <a href="{{ url_for('upload_note') }}" class="btn btn-primary btn-xs">+ Upload</a>
+        <a href="{{ url_for('notes') }}" class="btn btn-ghost btn-sm">All →</a>
+      </div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:10px; margin-top:14px;">
+      {% if stats.notes %}
+        {% for nt in stats.notes %}
+          <div style="padding:12px 14px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:var(--radius-md);">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+              <div style="font-weight:700; font-size:0.95rem; color:var(--gray-900);">{{ nt.title }}</div>
+              <span class="badge badge-blue" style="font-size:0.7rem;">{{ nt.department or 'All Classes' }}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:0.78rem; color:var(--gray-600);">
+              <span>{{ nt.subject or 'General' }} {% if nt.file_name %}• 📎 {{ nt.file_name }}{% endif %}</span>
+              <span style="font-size:0.75rem; color:var(--gray-400);">{{ nt.created_at }}</span>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state" style="padding:28px 20px;">
+          <div class="empty-state-icon">📖</div>
+          <div class="empty-state-title">No Notes Uploaded</div>
+          <p class="empty-state-desc">Upload lecture materials, question banks, or slides.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    const hour = new Date().getHours();
-    let greeting = 'day';
-    if (hour < 12) greeting = 'morning';
-    else if (hour < 17) greeting = 'afternoon';
-    else greeting = 'evening';
-
-    const greetEl = document.getElementById('greeting-time');
-    if (greetEl) greetEl.innerText = greeting;
-
     const dateEl = document.getElementById('current-date-text');
     if (dateEl) {
       const now = new Date();
