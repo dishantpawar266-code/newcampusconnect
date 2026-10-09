@@ -14,6 +14,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from models import (
     db, User, Notice, Assignment, AssignmentSubmission, UploadedFile, Note, NoteShare, Doubt,
+    ClubEvent, ClubImage,
     Quiz, QuizResult, Conversation, Message, StudySession,
     Task, ExamReminder, LoginLog, ActivityLog, init_db_and_migrate
 )
@@ -535,18 +536,12 @@ def dashboard():
                 })
             total_students_count = len(assigned_students_set)
 
-            # 2. Filter doubts (Solve Doubts)
-            doubts_query = Doubt.query.order_by(Doubt.created_at.desc())
+            # 2. Filter doubts assigned to this faculty member (Faculty Doubts only)
+            doubts_query = Doubt.query.filter_by(target_uid=uid, target_type="faculty").order_by(Doubt.created_at.desc())
             if active_class != "all":
                 doubts_query = doubts_query.filter(
-                    (Doubt.department == active_class) | (Doubt.department.ilike(f"%{active_class}%")) | (Doubt.target_uid == uid)
+                    (Doubt.department == active_class) | (Doubt.department.ilike(f"%{active_class}%"))
                 )
-            else:
-                dept_conditions = [(Doubt.department == c) | (Doubt.department.ilike(f"%{c}%")) for c in my_classes]
-                if dept_conditions:
-                    doubts_query = doubts_query.filter(db.or_(*dept_conditions, Doubt.target_uid == uid))
-                else:
-                    doubts_query = doubts_query.filter_by(target_uid=uid)
 
             all_doubts = doubts_query.all()
             pending_doubts = [d for d in all_doubts if not d.answered]
@@ -662,8 +657,8 @@ def dashboard():
                 "created_at": n.created_at.isoformat() if n.created_at else ""
             } for n in my_notices]
             
-            pending_doubts = Doubt.query.filter_by(target_uid=uid, answered=False).order_by(Doubt.created_at.desc()).all()
-            answered_doubts_count = Doubt.query.filter_by(target_uid=uid, answered=True).count()
+            pending_doubts = Doubt.query.filter_by(target_uid=uid, answered=False, target_type='club').order_by(Doubt.created_at.desc()).all()
+            answered_doubts_count = Doubt.query.filter_by(target_uid=uid, answered=True, target_type='club').count()
             doubts_data = [{
                 "id": d.id, "question": d.question, "asker_name": d.asker_name,
                 "department": d.department, "created_at": d.created_at.isoformat() if d.created_at else ""
@@ -920,11 +915,14 @@ def profile():
 def notices():
     role = session.get("role")
     uid = session.get("uid")
-    dept_filter = request.args.get("department", "")
-    query = Notice.query.order_by(Notice.created_at.desc())
+    # General notices: official campus notices & faculty notices only (Club notices belong in Clubs section)
+    query = Notice.query.filter(
+        (Notice.author_role != "club") | (Notice.author_role == None),
+        (Notice.category != "club") | (Notice.category == None)
+    ).order_by(Notice.created_at.desc())
     user_obj = User.query.get(uid)
     faculty_classes = get_faculty_classes(user_obj) if role == "faculty" else DEPARTMENTS
-    
+    dept_filter = request.args.get("department", "").strip()
     if dept_filter:
         query = query.filter((Notice.department == dept_filter) | (Notice.department == "") | (Notice.department == None))
     elif role == "student":
@@ -932,7 +930,6 @@ def notices():
         st_dept = user.get("department", "") if user else ""
         if st_dept:
             query = query.filter(
-                (Notice.category == "club") |
                 (Notice.department == "") |
                 (Notice.department == None) |
                 (Notice.department == "All My Classes") |
@@ -1635,43 +1632,43 @@ def share_note(note_id):
 def doubts():
     uid = session["uid"]
     role = session.get("role")
+    
+    # Clubs have their own dedicated questions interface in the Clubs section
+    if role == "club":
+        return redirect(url_for("clubs", tab="ask"))
+        
     user_obj = User.query.get(uid)
     my_classes = get_faculty_classes(user_obj) if role == "faculty" else []
     selected_class = request.args.get("class", "all").strip()
     status_filter = request.args.get("status", "all").strip()
     
-    query = Doubt.query.order_by(Doubt.created_at.desc())
+    # Strictly faculty doubts (faculty doubts and club doubts are completely separate)
+    query = Doubt.query.filter_by(target_type="faculty").order_by(Doubt.created_at.desc())
     
     if role == "student":
+        # Students see only their doubts asked to faculty
         query = query.filter_by(asker_uid=uid)
     elif role == "faculty":
-        # Faculty sees doubts targeted directly to them OR from students in classes they teach
+        # Faculty see only doubts assigned to them
+        query = query.filter_by(target_uid=uid)
         if selected_class != "all" and selected_class in my_classes:
             query = query.filter(
-                (Doubt.target_uid == uid) |
                 (Doubt.department == selected_class) |
                 (Doubt.department.ilike(f"%{selected_class}%"))
             )
-        else:
-            selected_class = "all"
-            class_conditions = [(Doubt.department == c) | (Doubt.department.ilike(f"%{c}%")) for c in my_classes]
-            if class_conditions:
-                query = query.filter(db.or_(*class_conditions, Doubt.target_uid == uid))
-            else:
-                query = query.filter_by(target_uid=uid)
-                
         if status_filter == "pending":
             query = query.filter(Doubt.answered == False)
         elif status_filter == "solved":
             query = query.filter(Doubt.answered == True)
-    elif role == "club":
-        query = query.filter_by(target_uid=uid)
+    elif role == "admin":
+        pass  # Admin can inspect all faculty doubts
         
     docs = query.all()
     items = [{
         "id": d.id, "question": d.question, "asker_name": d.asker_name, "asker_uid": d.asker_uid,
         "target_name": d.target_name, "target_uid": d.target_uid, "target_type": d.target_type,
         "department": d.department or "General", "answer": d.answer, "answered": d.answered,
+        "status": d.status or ("Solved" if d.answered else "Pending"),
         "answered_at": d.answered_at.strftime("%b %d, %Y %H:%M") if d.answered_at else "",
         "created_at": d.created_at.strftime("%b %d, %Y %H:%M") if d.created_at else ""
     } for d in docs]
@@ -1687,8 +1684,18 @@ def doubts():
 @app.route("/doubts/ask", methods=["GET", "POST"])
 @role_required("student")
 def ask_doubt():
-    faculty_list = [{"id": f.id, "name": f.name, "designation": f.designation} for f in User.query.filter_by(role="faculty").all()]
-    club_list = [{"id": c.id, "name": c.name, "club_name": c.club_name, "club_category": c.club_category} for c in User.query.filter_by(role="club").all()]
+    # Only registered faculty members appear in Ask Faculty
+    faculty_users = User.query.filter_by(role="faculty", is_active=True).all()
+    faculty_list = []
+    for f in faculty_users:
+        depts = get_faculty_classes(f)
+        dept_str = ", ".join(depts) if depts else (f.department or "General Faculty")
+        faculty_list.append({
+            "id": f.id,
+            "name": f.name,
+            "designation": f.designation or "Faculty",
+            "department": dept_str
+        })
 
     if request.method == "POST":
         uid = session["uid"]
@@ -1697,28 +1704,39 @@ def ask_doubt():
         target_uid = request.form.get("target_uid", "").strip()
         
         if not question or not target_uid:
-            flash("Question and recipient are required.", "danger")
-            return render_template("doubts_form.html", faculty_list=faculty_list, club_list=club_list, departments=DEPARTMENTS)
+            flash("Please select a faculty member and type your question.", "danger")
+            return render_template("doubts_form.html", faculty_list=faculty_list, departments=DEPARTMENTS)
             
+        selected_faculty = User.query.get(target_uid)
+        if not selected_faculty or selected_faculty.role != "faculty":
+            flash("Selected faculty member is not valid.", "danger")
+            return render_template("doubts_form.html", faculty_list=faculty_list, departments=DEPARTMENTS)
+
+        fac_depts = get_faculty_classes(selected_faculty)
+        fac_dept_str = fac_depts[0] if fac_depts else (selected_faculty.department or user.get("department", "General"))
+        dept_selected = request.form.get("department", "").strip() or fac_dept_str
+
         doubt = Doubt(
             question=question,
-            target_uid=target_uid,
-            target_name=request.form.get("target_name", "").strip(),
-            target_type=request.form.get("target_type", "faculty"),
+            target_uid=selected_faculty.id,
+            target_name=selected_faculty.name,
+            target_type="faculty",
             asker_uid=uid,
-            asker_name=user.get("name", "Unknown") if user else "Unknown",
-            department=request.form.get("department", user.get("department", "") if user else ""),
+            asker_name=user.get("name", "Student") if user else "Student",
+            department=dept_selected,
+            status="Pending",
+            answered=False
         )
         db.session.add(doubt)
         db.session.commit()
-        log_activity(session["uid"], session.get("name"), session.get("role"), "doubt_asked", "Doubts", f"Asked doubt to {doubt.target_name}")
-        flash("Question submitted successfully.", "success")
+        log_activity(session["uid"], session.get("name"), session.get("role"), "doubt_asked", "Doubts", f"Asked doubt to Prof. {selected_faculty.name}")
+        flash(f"Question submitted to {selected_faculty.name} successfully.", "success")
         return redirect(url_for("doubts"))
         
-    return render_template("doubts_form.html", faculty_list=faculty_list, club_list=club_list, departments=DEPARTMENTS)
+    return render_template("doubts_form.html", faculty_list=faculty_list, departments=DEPARTMENTS)
 
 @app.route("/doubts/<doubt_id>/answer", methods=["POST"])
-@role_required("faculty", "club")
+@role_required("faculty", "admin")
 def answer_doubt(doubt_id):
     answer = request.form.get("answer", "").strip()
     if not answer:
@@ -1726,33 +1744,427 @@ def answer_doubt(doubt_id):
         return redirect(url_for("doubts"))
         
     doubt = Doubt.query.get(doubt_id)
-    if not doubt:
+    if not doubt or doubt.target_type != "faculty":
         flash("Doubt not found.", "danger")
         return redirect(url_for("doubts"))
         
     uid = session["uid"]
     role = session.get("role")
-    user_obj = User.query.get(uid)
-    my_classes = get_faculty_classes(user_obj) if role == "faculty" else []
     
-    can_answer = (doubt.target_uid == uid) or (role == "admin") or (
-        role == "faculty" and (
-            not doubt.department or
-            any(c.lower() in (doubt.department or "").lower() for c in my_classes)
-        )
-    )
+    can_answer = (doubt.target_uid == uid) or (role == "admin")
     if can_answer:
         doubt.answer = answer
         doubt.answered = True
-        doubt.target_uid = uid
-        doubt.target_name = session.get("name", "Faculty")
+        doubt.status = "Solved"
         doubt.answered_at = datetime.now(timezone.utc)
         db.session.commit()
         log_activity(session["uid"], session.get("name"), session.get("role"), "doubt_answered", "Doubts", f"Answered doubt for {doubt.asker_name}")
         flash("Solution submitted successfully.", "success")
     else:
-        flash("Permission denied to answer this doubt.", "danger")
+        flash("You can only answer doubts directly assigned to you.", "danger")
     return redirect(url_for("doubts"))
+
+# ===========================================================================
+# CAMPUS CLUBS SECTION (DEDICATED HUB: ASK CLUBS, NOTICES, EVENTS, GALLERY)
+# ===========================================================================
+
+@app.route("/clubs")
+@login_required
+def clubs():
+    uid = session["uid"]
+    role = session.get("role")
+    tab = request.args.get("tab", "overview").strip()
+    selected_club_id = request.args.get("club_id", "all").strip()
+    
+    # 1. Fetch registered clubs
+    clubs_query = User.query.filter_by(role="club", is_active=True).order_by(User.club_name.asc(), User.name.asc()).all()
+    clubs_list = [{
+        "id": c.id,
+        "name": c.name,
+        "club_name": c.club_name or c.name,
+        "club_category": c.club_category or "Campus Club",
+        "description": c.description or c.bio or "Active student club at Campus Connect.",
+        "avatar_url": c.avatar_url,
+        "email": c.email
+    } for c in clubs_query]
+    
+    active_club = None
+    if selected_club_id != "all":
+        active_club = next((c for c in clubs_list if c["id"] == selected_club_id), None)
+        if not active_club:
+            selected_club_id = "all"
+
+    # 2. Ask Clubs / Doubts (Strictly target_type == 'club')
+    club_doubts_q = Doubt.query.filter_by(target_type="club").order_by(Doubt.created_at.desc())
+    if role == "student":
+        # Students see their inquiries submitted to clubs
+        club_doubts_q = club_doubts_q.filter_by(asker_uid=uid)
+    elif role == "club":
+        # Club leaders manage questions submitted to their club
+        club_doubts_q = club_doubts_q.filter_by(target_uid=uid)
+    elif role == "faculty":
+        # Faculty does not manage club doubts (complete separation)
+        club_doubts_q = club_doubts_q.filter_by(asker_uid="__none__")
+        
+    if selected_club_id != "all" and role != "club":
+        club_doubts_q = club_doubts_q.filter_by(target_uid=selected_club_id)
+        
+    raw_doubts = club_doubts_q.all()
+    club_doubts = [{
+        "id": d.id,
+        "question": d.question,
+        "asker_name": d.asker_name,
+        "asker_uid": d.asker_uid,
+        "target_name": d.target_name,
+        "target_uid": d.target_uid,
+        "answer": d.answer,
+        "answered": d.answered,
+        "status": d.status or ("Answered" if d.answered else "Pending"),
+        "answered_at": d.answered_at.strftime("%b %d, %Y %H:%M") if d.answered_at else "",
+        "created_at": d.created_at.strftime("%b %d, %Y %H:%M") if d.created_at else ""
+    } for d in raw_doubts]
+
+    # 3. Club Notices
+    club_notices_q = Notice.query.filter(
+        (Notice.author_role == "club") | (Notice.category == "club")
+    ).order_by(Notice.created_at.desc())
+    if selected_club_id != "all":
+        club_notices_q = club_notices_q.filter_by(author_uid=selected_club_id)
+    raw_notices = club_notices_q.all()
+    club_notices = [{
+        "id": n.id,
+        "title": n.title,
+        "content": n.content,
+        "author_name": n.author_name,
+        "author_uid": n.author_uid,
+        "category": n.category or "club",
+        "file_id": n.file_id,
+        "file_name": n.file_name,
+        "file_type": n.file_type,
+        "file_url": url_for("serve_file", file_id=n.file_id) if n.file_id else "",
+        "created_at": n.created_at.strftime("%b %d, %Y") if n.created_at else ""
+    } for n in raw_notices]
+
+    # 4. Club Events
+    club_events_q = ClubEvent.query.order_by(ClubEvent.created_at.desc())
+    if selected_club_id != "all":
+        club_events_q = club_events_q.filter_by(club_uid=selected_club_id)
+    raw_events = club_events_q.all()
+    club_events = [{
+        "id": e.id,
+        "club_uid": e.club_uid,
+        "club_name": e.club_name,
+        "title": e.title,
+        "description": e.description,
+        "event_date": e.event_date,
+        "event_time": e.event_time or "",
+        "venue": e.venue or "Campus",
+        "registration_link": e.registration_link or "",
+        "file_id": e.file_id,
+        "file_name": e.file_name,
+        "file_url": url_for("serve_file", file_id=e.file_id) if e.file_id else "",
+        "created_at": e.created_at.strftime("%b %d, %Y") if e.created_at else ""
+    } for e in raw_events]
+
+    # 5. Club Images / Gallery
+    club_images_q = ClubImage.query.order_by(ClubImage.created_at.desc())
+    if selected_club_id != "all":
+        club_images_q = club_images_q.filter_by(club_uid=selected_club_id)
+    raw_images = club_images_q.all()
+    club_images = [{
+        "id": img.id,
+        "club_uid": img.club_uid,
+        "club_name": img.club_name,
+        "title": img.title,
+        "caption": img.caption or "",
+        "file_id": img.file_id,
+        "file_name": img.file_name,
+        "image_url": url_for("serve_file", file_id=img.file_id) if img.file_id else "",
+        "created_at": img.created_at.strftime("%b %d, %Y") if img.created_at else ""
+    } for img in raw_images]
+
+    return render_template(
+        "clubs.html",
+        tab=tab,
+        clubs_list=clubs_list,
+        selected_club_id=selected_club_id,
+        active_club=active_club,
+        club_doubts=club_doubts,
+        club_notices=club_notices,
+        club_events=club_events,
+        club_images=club_images
+    )
+
+@app.route("/clubs/ask", methods=["POST"])
+@role_required("student")
+def ask_club():
+    uid = session["uid"]
+    user = get_current_user()
+    club_id = request.form.get("club_id", "").strip()
+    question = request.form.get("question", "").strip()
+    
+    if not club_id or not question:
+        flash("Please select a club and describe your question.", "danger")
+        return redirect(url_for("clubs", tab="ask"))
+        
+    club = User.query.get(club_id)
+    if not club or club.role != "club":
+        flash("Selected club was not found.", "danger")
+        return redirect(url_for("clubs", tab="ask"))
+        
+    club_display_name = club.club_name or club.name
+    doubt = Doubt(
+        question=question,
+        target_uid=club.id,
+        target_name=club_display_name,
+        target_type="club",
+        asker_uid=uid,
+        asker_name=user.get("name", "Student") if user else "Student",
+        department=club.club_category or "Club Activity",
+        status="Pending",
+        answered=False
+    )
+    db.session.add(doubt)
+    db.session.commit()
+    log_activity(session["uid"], session.get("name"), session.get("role"), "club_doubt_asked", "Clubs", f"Submitted question to club {club_display_name}")
+    flash(f"Question submitted to {club_display_name} successfully.", "success")
+    return redirect(url_for("clubs", tab="ask", club_id=club_id))
+
+@app.route("/clubs/doubts/<doubt_id>/answer", methods=["POST"])
+@role_required("club", "admin")
+def answer_club_doubt(doubt_id):
+    answer = request.form.get("answer", "").strip()
+    if not answer:
+        flash("Reply cannot be empty.", "danger")
+        return redirect(url_for("clubs", tab="ask"))
+        
+    doubt = Doubt.query.get(doubt_id)
+    if not doubt or doubt.target_type != "club":
+        flash("Club doubt not found.", "danger")
+        return redirect(url_for("clubs", tab="ask"))
+        
+    uid = session["uid"]
+    role = session.get("role")
+    if doubt.target_uid != uid and role != "admin":
+        flash("You can only answer questions submitted to your own club.", "danger")
+        return redirect(url_for("clubs", tab="ask"))
+        
+    doubt.answer = answer
+    doubt.answered = True
+    doubt.status = "Answered"
+    doubt.answered_at = datetime.now(timezone.utc)
+    db.session.commit()
+    log_activity(session["uid"], session.get("name"), session.get("role"), "club_doubt_answered", "Clubs", f"Replied to club question from {doubt.asker_name}")
+    flash("Reply posted successfully.", "success")
+    return redirect(url_for("clubs", tab="ask"))
+
+@app.route("/clubs/notices/create", methods=["POST"])
+@role_required("club", "admin")
+def create_club_notice():
+    uid = session["uid"]
+    user = get_current_user()
+    title = request.form.get("title", "").strip()
+    content = request.form.get("content", "").strip()
+    
+    if not title or not content:
+        flash("Notice title and content are required.", "danger")
+        return redirect(url_for("clubs", tab="notices"))
+        
+    file = request.files.get("file")
+    file_id = None
+    file_name = None
+    file_type = None
+    if file and file.filename:
+        if not allowed_file(file.filename):
+            flash("Invalid file format. Please upload PDF or image attachments.", "danger")
+            return redirect(url_for("clubs", tab="notices"))
+        file_data = file.read()
+        if len(file_data) > MAX_FILE_SIZE_MB * 1024 * 1024:
+            flash(f"Attachment too large. Maximum size is {MAX_FILE_SIZE_MB}MB.", "danger")
+            return redirect(url_for("clubs", tab="notices"))
+        try:
+            ext = file.filename.rsplit(".", 1)[1].lower()
+            uploaded = UploadedFile(
+                filename=file.filename,
+                content_type=file.content_type,
+                data=file_data
+            )
+            db.session.add(uploaded)
+            db.session.flush()
+            file_id = uploaded.id
+            file_name = file.filename
+            file_type = ext
+        except Exception as e:
+            app.logger.error(f"Club notice file upload error: {e}")
+            db.session.rollback()
+            flash("Failed to upload notice attachment.", "danger")
+            return redirect(url_for("clubs", tab="notices"))
+            
+    club_user = User.query.get(uid)
+    club_name_val = (club_user.club_name if club_user and club_user.club_name else session.get("name", "Campus Club"))
+    dept_val = (club_user.club_category if club_user and club_user.club_category else "Campus Club")
+    
+    notice = Notice(
+        title=title,
+        content=content,
+        department=dept_val,
+        author_uid=uid,
+        author_name=club_name_val,
+        author_role="club",
+        category="club",
+        file_id=file_id,
+        file_name=file_name,
+        file_type=file_type
+    )
+    db.session.add(notice)
+    db.session.commit()
+    log_activity(session["uid"], session.get("name"), session.get("role"), "club_notice_created", "Clubs", f"Published club announcement: '{title}'")
+    flash("Club announcement published successfully.", "success")
+    return redirect(url_for("clubs", tab="notices"))
+
+@app.route("/clubs/events/create", methods=["POST"])
+@role_required("club", "admin")
+def create_club_event():
+    uid = session["uid"]
+    title = request.form.get("title", "").strip()
+    description = request.form.get("description", "").strip()
+    event_date = request.form.get("event_date", "").strip()
+    event_time = request.form.get("event_time", "").strip()
+    venue = request.form.get("venue", "").strip()
+    reg_link = request.form.get("registration_link", "").strip()
+    
+    if not title or not description or not event_date:
+        flash("Title, description, and event date are required.", "danger")
+        return redirect(url_for("clubs", tab="events"))
+        
+    file = request.files.get("poster")
+    file_id = None
+    file_name = None
+    if file and file.filename:
+        if not allowed_file(file.filename):
+            flash("Invalid poster file format.", "danger")
+            return redirect(url_for("clubs", tab="events"))
+        file_data = file.read()
+        if len(file_data) > MAX_FILE_SIZE_MB * 1024 * 1024:
+            flash("Poster file exceeds 10MB limit.", "danger")
+            return redirect(url_for("clubs", tab="events"))
+        try:
+            uploaded = UploadedFile(
+                filename=file.filename,
+                content_type=file.content_type,
+                data=file_data
+            )
+            db.session.add(uploaded)
+            db.session.flush()
+            file_id = uploaded.id
+            file_name = file.filename
+        except Exception as e:
+            app.logger.error(f"Club event poster upload error: {e}")
+            db.session.rollback()
+            
+    club_user = User.query.get(uid)
+    club_name_val = (club_user.club_name if club_user and club_user.club_name else session.get("name", "Campus Club"))
+    
+    event = ClubEvent(
+        club_uid=uid,
+        club_name=club_name_val,
+        title=title,
+        description=description,
+        event_date=event_date,
+        event_time=event_time,
+        venue=venue or "Campus Auditorium",
+        registration_link=reg_link,
+        file_id=file_id,
+        file_name=file_name
+    )
+    db.session.add(event)
+    db.session.commit()
+    log_activity(session["uid"], session.get("name"), session.get("role"), "club_event_created", "Clubs", f"Created club event: '{title}'")
+    flash("Club event added successfully.", "success")
+    return redirect(url_for("clubs", tab="events"))
+
+@app.route("/clubs/events/<event_id>/delete", methods=["POST"])
+@role_required("club", "admin")
+def delete_club_event(event_id):
+    uid = session["uid"]
+    role = session.get("role")
+    event = ClubEvent.query.get_or_404(event_id)
+    if event.club_uid != uid and role != "admin":
+        flash("You can only delete events from your own club.", "danger")
+        return redirect(url_for("clubs", tab="events"))
+        
+    db.session.delete(event)
+    db.session.commit()
+    flash("Club event removed.", "success")
+    return redirect(url_for("clubs", tab="events"))
+
+@app.route("/clubs/images/upload", methods=["POST"])
+@role_required("club", "admin")
+def upload_club_image():
+    uid = session["uid"]
+    title = request.form.get("title", "").strip()
+    caption = request.form.get("caption", "").strip()
+    file = request.files.get("image")
+    
+    if not title or not file or not file.filename:
+        flash("Image title and an image file are required.", "danger")
+        return redirect(url_for("clubs", tab="gallery"))
+        
+    ext = file.filename.rsplit(".", 1)[1].lower() if "." in file.filename else ""
+    if ext not in {"png", "jpg", "jpeg", "webp"}:
+        flash("Please upload a valid image file (PNG, JPG, WEBP).", "danger")
+        return redirect(url_for("clubs", tab="gallery"))
+        
+    file_data = file.read()
+    if len(file_data) > MAX_FILE_SIZE_MB * 1024 * 1024:
+        flash("Image file exceeds 10MB limit.", "danger")
+        return redirect(url_for("clubs", tab="gallery"))
+        
+    try:
+        uploaded = UploadedFile(
+            filename=file.filename,
+            content_type=file.content_type,
+            data=file_data
+        )
+        db.session.add(uploaded)
+        db.session.flush()
+        
+        club_user = User.query.get(uid)
+        club_name_val = (club_user.club_name if club_user and club_user.club_name else session.get("name", "Campus Club"))
+        
+        img = ClubImage(
+            club_uid=uid,
+            club_name=club_name_val,
+            title=title,
+            caption=caption,
+            file_id=uploaded.id,
+            file_name=file.filename
+        )
+        db.session.add(img)
+        db.session.commit()
+        log_activity(session["uid"], session.get("name"), session.get("role"), "club_image_uploaded", "Clubs", f"Uploaded photo: '{title}'")
+        flash("Club image uploaded successfully.", "success")
+    except Exception as e:
+        app.logger.error(f"Club image upload error: {e}")
+        db.session.rollback()
+        flash("Failed to upload image.", "danger")
+        
+    return redirect(url_for("clubs", tab="gallery"))
+
+@app.route("/clubs/images/<image_id>/delete", methods=["POST"])
+@role_required("club", "admin")
+def delete_club_image(image_id):
+    uid = session["uid"]
+    role = session.get("role")
+    img = ClubImage.query.get_or_404(image_id)
+    if img.club_uid != uid and role != "admin":
+        flash("You can only delete images uploaded by your own club.", "danger")
+        return redirect(url_for("clubs", tab="gallery"))
+        
+    db.session.delete(img)
+    db.session.commit()
+    flash("Club image removed.", "success")
+    return redirect(url_for("clubs", tab="gallery"))
 
 # ===========================================================================
 # QUIZZES (ACTIVE NOW / INACTIVE NOW, CLASS TARGETING, EDIT & DELETE)

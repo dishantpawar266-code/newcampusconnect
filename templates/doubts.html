@@ -3,30 +3,38 @@
 {% block page_title %}{% if current_user.role == 'faculty' %}Solve Doubts{% else %}Doubts{% endif %}{% endblock %}
 {% block content %}
 
+<!-- Top Section Navigation for Students: Faculty Doubts vs Club Doubts -->
+{% if current_user.role == 'student' %}
+<div style="display:flex; gap:10px; margin-bottom:20px; border-bottom:1px solid var(--gray-200); padding-bottom:12px;">
+  <a href="{{ url_for('doubts') }}" class="btn btn-sm btn-primary" style="font-weight:700; border-radius:999px;">
+    👨‍🏫 Faculty Doubts (Active)
+  </a>
+  <a href="{{ url_for('clubs', tab='ask') }}" class="btn btn-sm btn-outline" style="font-weight:600; border-radius:999px;">
+    🏛️ Club Doubts & Questions →
+  </a>
+</div>
+{% endif %}
+
 <!-- Header -->
 <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
   <div class="page-header-left">
     <h1 class="page-title" style="font-size:1.75rem; font-weight:800; color:var(--gray-900); margin:0;">
       {% if current_user.role == 'faculty' %}
-        💬 Solve Student Doubts
-      {% elif current_user.role == 'club' %}
-        💬 Student Inquiries
+        💬 Doubts Assigned to You
       {% else %}
-        ❓ Academic Doubts & Queries
+        ❓ Academic Doubts (Asked to Faculty)
       {% endif %}
     </h1>
     <p class="page-subtitle" style="color:var(--gray-500); margin:4px 0 0; font-size:0.9rem;">
       {% if current_user.role == 'faculty' %}
-        Review and solve student academic questions from your assigned classes.
-      {% elif current_user.role == 'club' %}
-        Respond to student questions regarding club events and activities.
+        Review and solve student academic questions assigned directly to you.
       {% else %}
-        Ask doubts directly to faculty or campus clubs, and view solutions.
+        Ask academic doubts directly to registered faculty members and track solutions.
       {% endif %}
     </p>
   </div>
   {% if current_user.role == 'student' %}
-    <a href="{{ url_for('ask_doubt') }}" class="btn btn-primary">❓ Ask a Question</a>
+    <a href="{{ url_for('ask_doubt') }}" class="btn btn-primary">❓ Ask Faculty a Question</a>
   {% endif %}
 </div>
 
@@ -121,8 +129,8 @@
           </div>
         {% endif %}
 
-        <!-- Faculty / Club Solve Form (Requirement 4) -->
-        {% if current_user.role in ('faculty', 'club') and not doubt.answered %}
+        <!-- Faculty Solve Form (Strictly Faculty or Admin) -->
+        {% if current_user.role in ('faculty', 'admin') and not doubt.answered %}
           <div style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--gray-200);">
             <form method="POST" action="{{ url_for('answer_doubt', doubt_id=doubt.id) }}">
               <div class="form-group" style="margin-bottom:10px;">

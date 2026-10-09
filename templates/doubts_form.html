@@ -3,89 +3,145 @@
 {% block page_title %}Ask a Question{% endblock %}
 {% block content %}
 
-<div style="max-width:680px">
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">❓ Submit a Doubt</span>
-    </div>
-    <div class="card-body">
-      <form method="POST" action="{{ url_for('ask_doubt') }}">
-        <div class="form-group">
-          <label class="form-label">Ask <span class="required">*</span></label>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-            {% for f in faculty_list %}
-              <div style="display:flex;align-items:center;gap:10px;padding:12px;border:2px solid var(--gray-200);border-radius:var(--border-radius-sm);cursor:pointer;transition:all .2s;font-size:14px"
-                   class="recipient-opt" data-uid="{{ f.id }}" data-name="{{ f.name }}" data-type="faculty" onclick="selectRecipient(this)">
-                <span style="font-size:20px">👨‍🏫</span>
-                <span>
-                  <strong>{{ f.name }}</strong><br/>
-                  <small style="color:var(--gray-500)">{{ f.designation or 'Faculty' }}</small>
-                </span>
-              </div>
-            {% endfor %}
-            {% for c in club_list %}
-              <div style="display:flex;align-items:center;gap:10px;padding:12px;border:2px solid var(--gray-200);border-radius:var(--border-radius-sm);cursor:pointer;transition:all .2s;font-size:14px"
-                   class="recipient-opt" data-uid="{{ c.id }}" data-name="{{ c.club_name or c.name }}" data-type="club" onclick="selectRecipient(this)">
-                <span style="font-size:20px">🏛️</span>
-                <span>
-                  <strong>{{ c.club_name or c.name }}</strong><br/>
-                  <small style="color:var(--gray-500)">{{ c.club_category or 'Club' }}</small>
-                </span>
-              </div>
-            {% endfor %}
-            {% if not faculty_list and not club_list %}
-              <div class="empty-state" style="padding:24px;grid-column:1/-1">
-                <div class="empty-state-text">No faculty or clubs registered yet.</div>
-              </div>
-            {% endif %}
-          </div>
+<div style="max-width:720px; margin:0 auto;">
+  <!-- Breadcrumb / Header -->
+  <div style="margin-bottom:20px;">
+    <a href="{{ url_for('doubts') }}" class="btn btn-ghost btn-sm" style="margin-bottom:8px;">← Back to Faculty Doubts</a>
+    <h1 style="font-size:1.75rem; font-weight:800; color:var(--gray-900); margin:4px 0;">❓ Ask a Question to Faculty</h1>
+    <p style="color:var(--gray-500); margin:0; font-size:0.92rem;">Select a registered faculty professor and submit your academic question directly.</p>
+  </div>
+
+  <div class="card" style="border-radius:var(--radius-lg); box-shadow:var(--shadow-md); border:1px solid var(--gray-200);">
+    <div class="card-body" style="padding:28px;">
+      <form method="POST" action="{{ url_for('ask_doubt') }}" id="doubtForm">
+        
+        <!-- Select Faculty -->
+        <div class="form-group" style="margin-bottom:22px;">
+          <label class="form-label" style="font-weight:700; font-size:0.95rem; color:var(--gray-900); display:flex; justify-content:space-between; align-items:center;">
+            <span>Select Faculty Member <span class="required" style="color:#ef4444;">*</span></span>
+            <span style="font-size:0.8rem; font-weight:500; color:var(--gray-500);">Choose professor to answer</span>
+          </label>
+
+          {% if faculty_list %}
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:12px; margin-bottom:12px;">
+              {% for f in faculty_list %}
+                <div class="recipient-opt faculty-card" data-uid="{{ f.id }}" data-name="{{ f.name }}" data-dept="{{ f.department }}"
+                     onclick="selectFaculty('{{ f.id }}', '{{ f.name }}', '{{ f.department }}', this)"
+                     style="display:flex; align-items:center; gap:12px; padding:14px; border:2px solid var(--gray-200); border-radius:var(--radius-md); cursor:pointer; transition:all .2s; background:#ffffff;">
+                  <div style="width:42px; height:42px; border-radius:50%; background:var(--primary-50); color:var(--primary-600); display:flex; align-items:center; justify-content:center; font-size:1.2rem; font-weight:700; flex-shrink:0;">
+                    👨‍🏫
+                  </div>
+                  <div style="overflow:hidden;">
+                    <div style="font-weight:700; color:var(--gray-900); font-size:0.95rem; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">{{ f.name }}</div>
+                    <div style="font-size:0.8rem; color:var(--primary-600); font-weight:600; margin-top:2px;">{{ f.department }}</div>
+                    <div style="font-size:0.75rem; color:var(--gray-400);">{{ f.designation or 'Faculty' }}</div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+
+            <!-- Also provide a standard select dropdown for convenience & accessibility -->
+            <div style="margin-top:8px;">
+              <select id="faculty-select" class="form-control" onchange="onSelectDropdown(this)" style="border-radius:var(--radius-md); font-size:0.9rem;">
+                <option value="">-- Or select faculty from list --</option>
+                {% for f in faculty_list %}
+                  <option value="{{ f.id }}" data-name="{{ f.name }}" data-dept="{{ f.department }}">
+                    {{ f.name }} — {{ f.department }} ({{ f.designation or 'Faculty' }})
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+          {% else %}
+            <div class="empty-state" style="padding:28px; text-align:center; background:var(--gray-50); border-radius:var(--radius-md); border:1px dashed var(--gray-300);">
+              <div style="font-size:2rem; margin-bottom:8px;">👨‍🏫</div>
+              <div style="font-weight:700; color:var(--gray-800);">No Registered Faculty Found</div>
+              <div style="font-size:0.85rem; color:var(--gray-500); margin-top:4px;">No faculty members are currently registered in the database.</div>
+            </div>
+          {% endif %}
+
           <input type="hidden" name="target_uid" id="target-uid" required />
           <input type="hidden" name="target_name" id="target-name" />
-          <input type="hidden" name="target_type" id="target-type" />
+          <input type="hidden" name="target_type" value="faculty" />
         </div>
 
-        <div class="form-group">
-          <label class="form-label" for="question">Your Question <span class="required">*</span></label>
+        <!-- Question Input -->
+        <div class="form-group" style="margin-bottom:20px;">
+          <label class="form-label" for="question" style="font-weight:700; font-size:0.95rem; color:var(--gray-900);">
+            Your Academic Question <span class="required" style="color:#ef4444;">*</span>
+          </label>
           <textarea id="question" name="question" class="form-control" rows="5"
-                    placeholder="Describe your doubt clearly..." required></textarea>
+                    placeholder="Clearly explain your doubt, topic, or problem. Provide specific details to help the faculty assist you..."
+                    required style="border-radius:var(--radius-md); font-size:0.92rem;"></textarea>
         </div>
 
-        <div class="form-group">
-          <label class="form-label" for="department">Related Department (optional)</label>
-          <select id="department" name="department" class="form-control">
-            <option value="">Select department</option>
+        <!-- Department Association -->
+        <div class="form-group" style="margin-bottom:24px;">
+          <label class="form-label" for="department" style="font-weight:700; font-size:0.9rem; color:var(--gray-800);">
+            Academic Department / Subject Area
+          </label>
+          <select id="department" name="department" class="form-control" style="border-radius:var(--radius-md); font-size:0.9rem;">
+            <option value="">Default to Faculty Department</option>
             {% for dept in departments %}
               <option value="{{ dept }}">{{ dept }}</option>
             {% endfor %}
           </select>
         </div>
 
-        <div style="display:flex;gap:12px">
-          <button type="submit" class="btn btn-primary">📩 Submit Question</button>
-          <a href="{{ url_for('doubts') }}" class="btn btn-secondary">Cancel</a>
+        <!-- Actions -->
+        <div style="display:flex; gap:12px; align-items:center;">
+          <button type="submit" class="btn btn-primary" style="padding:10px 24px; font-weight:700; border-radius:var(--radius-md);">
+            📩 Submit Question to Faculty
+          </button>
+          <a href="{{ url_for('doubts') }}" class="btn btn-ghost" style="padding:10px 18px; border-radius:var(--radius-md);">Cancel</a>
         </div>
       </form>
     </div>
   </div>
 </div>
 
-{% endblock %}
-
-{% block extra_scripts %}
 <script>
-function selectRecipient(element) {
-  var uid = element.getAttribute('data-uid');
-  var name = element.getAttribute('data-name');
-  var type = element.getAttribute('data-type');
+function selectFaculty(uid, name, dept, el) {
   document.getElementById('target-uid').value = uid;
   document.getElementById('target-name').value = name;
-  document.getElementById('target-type').value = type;
-  document.querySelectorAll('.recipient-opt').forEach(function(el) {
-    el.style.borderColor = 'var(--gray-200)';
-    el.style.background = '';
+  
+  var sel = document.getElementById('faculty-select');
+  if (sel) sel.value = uid;
+
+  document.querySelectorAll('.recipient-opt').forEach(function(card) {
+    card.style.borderColor = 'var(--gray-200)';
+    card.style.background = '#ffffff';
   });
-  element.style.borderColor = 'var(--primary-500)';
-  element.style.background = 'var(--primary-50)';
+  if (el) {
+    el.style.borderColor = 'var(--primary)';
+    el.style.background = 'var(--primary-50)';
+  }
 }
+
+function onSelectDropdown(selectEl) {
+  var val = selectEl.value;
+  if (!val) {
+    document.getElementById('target-uid').value = '';
+    document.getElementById('target-name').value = '';
+    document.querySelectorAll('.recipient-opt').forEach(function(card) {
+      card.style.borderColor = 'var(--gray-200)';
+      card.style.background = '#ffffff';
+    });
+    return;
+  }
+  var opt = selectEl.options[selectEl.selectedIndex];
+  var name = opt.getAttribute('data-name');
+  var dept = opt.getAttribute('data-dept');
+  
+  var targetCard = document.querySelector('.recipient-opt[data-uid="' + val + '"]');
+  selectFaculty(val, name, dept, targetCard);
+}
+
+// Auto-select first faculty if present
+document.addEventListener('DOMContentLoaded', function() {
+  var firstOpt = document.querySelector('.recipient-opt');
+  if (firstOpt) {
+    firstOpt.click();
+  }
+});
 </script>
 {% endblock %}

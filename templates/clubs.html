@@ -1,0 +1,583 @@
+{% extends "base.html" %}
+{% block title %}Campus Clubs — Campus Connect{% endblock %}
+{% block page_title %}Campus Clubs{% endblock %}
+
+{% block content %}
+<div class="clubs-container">
+
+  <!-- Header & Cross Navigation -->
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
+    <div>
+      <h1 class="page-title" style="font-size:1.75rem; font-weight:800; color:var(--gray-900); margin:0;">
+        🏛️ Campus Clubs & Societies
+      </h1>
+      <p class="page-subtitle" style="color:var(--gray-500); margin:4px 0 0; font-size:0.92rem;">
+        Dedicated hub for student clubs: direct inquiries, official club notices, campus events, and photo galleries.
+      </p>
+    </div>
+    
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <a href="{{ url_for('doubts') }}" class="btn btn-outline btn-sm" style="font-weight:600; border-radius:999px;">
+        👨‍🏫 Faculty Doubts →
+      </a>
+      <a href="{{ url_for('notices') }}" class="btn btn-outline btn-sm" style="font-weight:600; border-radius:999px;">
+        📢 Official Campus Notices →
+      </a>
+    </div>
+  </div>
+
+  <!-- Club Section Navigation Tabs -->
+  <div class="card mb-6" style="padding:10px 16px; border-radius:var(--radius-md); border:1px solid var(--gray-200);">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+      <!-- Main Tabs -->
+      <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+        <a href="{{ url_for('clubs', tab='overview', club_id=selected_club_id) }}"
+           class="btn btn-sm {% if tab == 'overview' %}btn-primary{% else %}btn-ghost{% endif %}"
+           style="border-radius:999px; font-weight:700;">
+          🏛️ Overview
+        </a>
+        <a href="{{ url_for('clubs', tab='ask', club_id=selected_club_id) }}"
+           class="btn btn-sm {% if tab == 'ask' %}btn-primary{% else %}btn-ghost{% endif %}"
+           style="border-radius:999px; font-weight:700;">
+          ❓ Ask Clubs & Doubts
+          {% if club_doubts %}<span class="badge" style="background:rgba(255,255,255,0.25); color:inherit; font-size:0.7rem; margin-left:4px;">{{ club_doubts|length }}</span>{% endif %}
+        </a>
+        <a href="{{ url_for('clubs', tab='notices', club_id=selected_club_id) }}"
+           class="btn btn-sm {% if tab == 'notices' %}btn-primary{% else %}btn-ghost{% endif %}"
+           style="border-radius:999px; font-weight:700;">
+          📢 Club Notices
+          {% if club_notices %}<span class="badge" style="background:rgba(255,255,255,0.25); color:inherit; font-size:0.7rem; margin-left:4px;">{{ club_notices|length }}</span>{% endif %}
+        </a>
+        <a href="{{ url_for('clubs', tab='events', club_id=selected_club_id) }}"
+           class="btn btn-sm {% if tab == 'events' %}btn-primary{% else %}btn-ghost{% endif %}"
+           style="border-radius:999px; font-weight:700;">
+          📅 Club Events
+          {% if club_events %}<span class="badge" style="background:rgba(255,255,255,0.25); color:inherit; font-size:0.7rem; margin-left:4px;">{{ club_events|length }}</span>{% endif %}
+        </a>
+        <a href="{{ url_for('clubs', tab='gallery', club_id=selected_club_id) }}"
+           class="btn btn-sm {% if tab == 'gallery' %}btn-primary{% else %}btn-ghost{% endif %}"
+           style="border-radius:999px; font-weight:700;">
+          🖼️ Club Images
+          {% if club_images %}<span class="badge" style="background:rgba(255,255,255,0.25); color:inherit; font-size:0.7rem; margin-left:4px;">{{ club_images|length }}</span>{% endif %}
+        </a>
+      </div>
+
+      <!-- Filter by Club -->
+      {% if clubs_list %}
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:0.8rem; font-weight:700; color:var(--gray-500); text-transform:uppercase;">Club:</span>
+          <select class="form-control" style="width:auto; min-width:180px; padding:4px 10px; font-size:0.85rem; border-radius:999px;"
+                  onchange="location.href='{{ url_for('clubs', tab=tab) }}&club_id=' + this.value">
+            <option value="all" {% if selected_club_id == 'all' %}selected{% endif %}>All Campus Clubs</option>
+            {% for c in clubs_list %}
+              <option value="{{ c.id }}" {% if selected_club_id == c.id %}selected{% endif %}>{{ c.club_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- TAB 1: OVERVIEW / CLUBS DIRECTORY -->
+  {% if tab == 'overview' %}
+    <div style="margin-bottom:24px;">
+      <h2 style="font-size:1.3rem; font-weight:700; color:var(--gray-900); margin-bottom:12px;">
+        🏛️ Registered Student Clubs & Societies
+      </h2>
+      {% if clubs_list %}
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:20px;">
+          {% for c in clubs_list %}
+            <div class="card" style="padding:24px; border-radius:var(--radius-lg); border:1px solid var(--gray-200); box-shadow:var(--shadow-sm); display:flex; flex-direction:column; justify-content:space-between;">
+              <div>
+                <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px;">
+                  <div style="width:50px; height:50px; border-radius:var(--radius-md); background:linear-gradient(135deg, #7c3aed, #4f46e5); color:#ffffff; display:flex; align-items:center; justify-content:center; font-size:1.5rem; font-weight:800; flex-shrink:0;">
+                    🏛️
+                  </div>
+                  <div>
+                    <h3 style="font-size:1.15rem; font-weight:700; color:var(--gray-900); margin:0;">{{ c.club_name }}</h3>
+                    <span class="badge badge-purple" style="font-size:0.75rem; margin-top:4px;">{{ c.club_category }}</span>
+                  </div>
+                </div>
+                <p style="color:var(--gray-600); font-size:0.88rem; line-height:1.5; margin-bottom:16px;">
+                  {{ c.description }}
+                </p>
+                <div style="font-size:0.8rem; color:var(--gray-400); margin-bottom:16px;">
+                  👤 Lead / Coordinator: <strong style="color:var(--gray-700);">{{ c.name }}</strong>
+                </div>
+              </div>
+              <div style="display:flex; gap:8px; border-top:1px solid var(--gray-100); padding-top:16px; flex-wrap:wrap;">
+                <a href="{{ url_for('clubs', tab='ask', club_id=c.id) }}" class="btn btn-primary btn-xs" style="border-radius:999px;">
+                  ❓ Ask Club
+                </a>
+                <a href="{{ url_for('clubs', tab='notices', club_id=c.id) }}" class="btn btn-outline btn-xs" style="border-radius:999px;">
+                  📢 Notices
+                </a>
+                <a href="{{ url_for('clubs', tab='events', club_id=c.id) }}" class="btn btn-outline btn-xs" style="border-radius:999px;">
+                  📅 Events
+                </a>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="card" style="padding:48px 20px; text-align:center;">
+          <div style="font-size:2.5rem; margin-bottom:12px;">🏛️</div>
+          <h3>No Campus Clubs Registered Yet</h3>
+          <p style="color:var(--gray-500); max-width:400px; margin:8px auto 0;">Student clubs registered on the portal will appear here.</p>
+        </div>
+      {% endif %}
+    </div>
+
+  <!-- TAB 2: ASK CLUBS & INQUIRIES -->
+  {% elif tab == 'ask' %}
+    <div style="display:grid; grid-template-columns:1fr; gap:24px;">
+
+      <!-- Student Ask Club Form (Students only) -->
+      {% if current_user.role == 'student' %}
+        <div class="card" style="border-radius:var(--radius-lg); border:1px solid var(--gray-200); box-shadow:var(--shadow-sm); padding:24px;">
+          <h2 style="font-size:1.25rem; font-weight:800; color:var(--gray-900); margin-bottom:6px; display:flex; align-items:center; gap:8px;">
+            <span>❓ Submit Inquiries / Doubts to a Club</span>
+          </h2>
+          <p style="color:var(--gray-500); font-size:0.88rem; margin-bottom:20px;">
+            Have questions about club inductions, workshops, hackathons, or activities? Choose a club and ask directly.
+          </p>
+
+          <form method="POST" action="{{ url_for('ask_club') }}">
+            <div class="form-group" style="margin-bottom:16px;">
+              <label class="form-label" style="font-weight:700; font-size:0.9rem; color:var(--gray-800);">
+                Select Club <span class="required" style="color:#ef4444;">*</span>
+              </label>
+              {% if clubs_list %}
+                <select name="club_id" id="club-select" class="form-control" required style="border-radius:var(--radius-md);">
+                  <option value="">-- Choose Club --</option>
+                  {% for c in clubs_list %}
+                    <option value="{{ c.id }}" {% if selected_club_id == c.id %}selected{% endif %}>
+                      {{ c.club_name }} ({{ c.club_category }})
+                    </option>
+                  {% endfor %}
+                </select>
+              {% else %}
+                <div class="empty-state" style="padding:16px;">No registered clubs found to submit questions to.</div>
+              {% endif %}
+            </div>
+
+            <div class="form-group" style="margin-bottom:18px;">
+              <label class="form-label" for="question" style="font-weight:700; font-size:0.9rem; color:var(--gray-800);">
+                Your Question / Inquiry <span class="required" style="color:#ef4444;">*</span>
+              </label>
+              <textarea name="question" id="question" rows="4" class="form-control" required
+                        placeholder="Write your question for the club organizers..."
+                        style="border-radius:var(--radius-md); font-size:0.9rem;"></textarea>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end;">
+              <button type="submit" class="btn btn-primary" style="padding:8px 20px; font-weight:700; border-radius:var(--radius-md);">
+                📩 Submit Question to Club
+              </button>
+            </div>
+          </form>
+        </div>
+      {% endif %}
+
+      <!-- Club Inquiries List -->
+      <div class="card" style="border-radius:var(--radius-lg); border:1px solid var(--gray-200); box-shadow:var(--shadow-sm); padding:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
+          <h2 style="font-size:1.25rem; font-weight:800; color:var(--gray-900); margin:0;">
+            {% if current_user.role == 'club' %}
+              💬 Questions Received for Your Club
+            {% else %}
+              📋 Your Club Questions & Answers
+            {% endif %}
+          </h2>
+          <span class="badge badge-purple">{{ club_doubts|length }} Total</span>
+        </div>
+
+        {% if club_doubts %}
+          <div style="display:flex; flex-direction:column; gap:16px;">
+            {% for d in club_doubts %}
+              <div class="card" style="padding:18px; border-radius:var(--radius-md); border:1px solid var(--gray-200); background:#ffffff;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:8px;">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    {% if d.answered %}
+                      <span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-weight:700; font-size:0.75rem;">
+                        ✓ ANSWERED
+                      </span>
+                    {% else %}
+                      <span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700; font-size:0.75rem;">
+                        ⏳ PENDING
+                      </span>
+                    {% endif %}
+                    <span class="badge badge-purple" style="font-size:0.75rem; font-weight:600;">
+                      🏛️ {{ d.target_name }}
+                    </span>
+                  </div>
+                  <span style="font-size:0.8rem; color:var(--gray-400);">📅 {{ d.created_at }}</span>
+                </div>
+
+                <div style="font-size:1rem; font-weight:700; color:var(--gray-900); margin:8px 0;">
+                  {{ d.question }}
+                </div>
+
+                <div style="font-size:0.82rem; color:var(--gray-500); margin-bottom:12px;">
+                  👤 Asked by: <strong style="color:var(--gray-800);">{{ d.asker_name }}</strong>
+                </div>
+
+                <!-- Verified Club Reply -->
+                {% if d.answer %}
+                  <div style="padding:14px; background:#f0fdf4; border-radius:var(--radius-md); border-left:4px solid #22c55e; margin-top:10px;">
+                    <div style="font-size:0.75rem; font-weight:700; color:#15803d; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:4px;">
+                      ✓ Reply from {{ d.target_name }}:
+                    </div>
+                    <div style="font-size:0.92rem; color:#166534; line-height:1.5; white-space:pre-wrap;">{{ d.answer }}</div>
+                    {% if d.answered_at %}
+                      <div style="font-size:0.75rem; color:#4ade80; margin-top:6px;">Replied on {{ d.answered_at }}</div>
+                    {% endif %}
+                  </div>
+                {% endif %}
+
+                <!-- Club Leader Reply Form (Only shown to club or admin if unanswered) -->
+                {% if current_user.role in ('club', 'admin') and not d.answered %}
+                  <div style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--gray-200);">
+                    <form method="POST" action="{{ url_for('answer_club_doubt', doubt_id=d.id) }}">
+                      <div class="form-group" style="margin-bottom:10px;">
+                        <label class="form-label" style="font-weight:700; font-size:0.85rem; color:var(--gray-800);">
+                          Post Reply to Student <span class="required" style="color:#ef4444;">*</span>
+                        </label>
+                        <textarea name="answer" class="form-control" rows="2"
+                                  placeholder="Type your official club response here..." required
+                                  style="font-size:0.88rem; border-radius:var(--radius-md);"></textarea>
+                      </div>
+                      <div style="display:flex; justify-content:flex-end;">
+                        <button type="submit" class="btn btn-primary btn-xs" style="font-weight:700; border-radius:999px;">
+                          ✓ Submit Reply
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div style="padding:36px 20px; text-align:center; color:var(--gray-500);">
+            <div style="font-size:2rem; margin-bottom:8px;">💬</div>
+            <div style="font-weight:700; color:var(--gray-800);">No Club Inquiries Yet</div>
+            <div style="font-size:0.85rem; margin-top:4px;">
+              {% if current_user.role == 'student' %}
+                Use the form above to ask questions directly to any registered club.
+              {% else %}
+                No questions have been submitted to your club yet.
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+  <!-- TAB 3: CLUB NOTICES -->
+  {% elif tab == 'notices' %}
+    <div style="display:flex; flex-direction:column; gap:20px;">
+      
+      <!-- Club Leader Notice Creation (Club and Admin only) -->
+      {% if current_user.role in ('club', 'admin') %}
+        <div class="card" style="border-radius:var(--radius-lg); border:1px solid var(--gray-200); box-shadow:var(--shadow-sm); padding:24px;">
+          <h2 style="font-size:1.25rem; font-weight:800; color:var(--gray-900); margin-bottom:6px;">
+            📢 Publish Club Announcement
+          </h2>
+          <p style="color:var(--gray-500); font-size:0.88rem; margin-bottom:18px;">
+            Publish an official notice for your club. Announcements appear exclusively in this Clubs section.
+          </p>
+
+          <form method="POST" action="{{ url_for('create_club_notice') }}" enctype="multipart/form-data">
+            <div class="form-group" style="margin-bottom:14px;">
+              <label class="form-label" style="font-weight:700; font-size:0.88rem; color:var(--gray-800);">
+                Notice Title <span class="required" style="color:#ef4444;">*</span>
+              </label>
+              <input type="text" name="title" class="form-control" required placeholder="e.g. Annual Tech Symposium Call for Submissions" style="border-radius:var(--radius-md);" />
+            </div>
+
+            <div class="form-group" style="margin-bottom:14px;">
+              <label class="form-label" style="font-weight:700; font-size:0.88rem; color:var(--gray-800);">
+                Content / Details <span class="required" style="color:#ef4444;">*</span>
+              </label>
+              <textarea name="content" rows="4" class="form-control" required placeholder="Describe the announcement, dates, venue, or eligibility..." style="border-radius:var(--radius-md);"></textarea>
+            </div>
+
+            <div class="form-group" style="margin-bottom:18px;">
+              <label class="form-label" style="font-weight:700; font-size:0.88rem; color:var(--gray-800);">
+                Attachment (PDF / Image) (Optional)
+              </label>
+              <input type="file" name="file" class="form-control" style="border-radius:var(--radius-md);" />
+            </div>
+
+            <div style="display:flex; justify-content:flex-end;">
+              <button type="submit" class="btn btn-primary" style="font-weight:700; border-radius:var(--radius-md); padding:8px 20px;">
+                📢 Publish Announcement
+              </button>
+            </div>
+          </form>
+        </div>
+      {% endif %}
+
+      <!-- Notices Display -->
+      <div>
+        <h2 style="font-size:1.25rem; font-weight:800; color:var(--gray-900); margin-bottom:14px;">
+          📢 Club Announcements ({{ club_notices|length }})
+        </h2>
+
+        {% if club_notices %}
+          <div style="display:flex; flex-direction:column; gap:16px;">
+            {% for n in club_notices %}
+              <div class="card" style="padding:22px; border-radius:var(--radius-md); border:1px solid var(--gray-200); border-left:4px solid #7c3aed;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:8px;">
+                  <div>
+                    <h3 style="font-size:1.15rem; font-weight:700; color:var(--gray-900); margin:0 0 6px;">
+                      {{ n.title }}
+                    </h3>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:0.8rem;">
+                      <span class="badge badge-purple">🏛️ {{ n.author_name }}</span>
+                      <span style="color:var(--gray-400);">📅 {{ n.created_at }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <p style="color:var(--gray-700); font-size:0.92rem; line-height:1.6; margin:12px 0 14px; white-space:pre-wrap;">
+                  {{ n.content }}
+                </p>
+
+                {% if n.file_url %}
+                  <div style="margin-top:12px;">
+                    <a href="{{ n.file_url }}" target="_blank" class="btn btn-xs btn-outline" style="border-radius:999px;">
+                      📎 Download Attachment ({{ n.file_name }})
+                    </a>
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="card" style="padding:48px 20px; text-align:center;">
+            <div style="font-size:2.5rem; margin-bottom:12px;">📢</div>
+            <h3>No Club Notices Available</h3>
+            <p style="color:var(--gray-500); max-width:400px; margin:8px auto 0;">No club circulars or announcements have been published yet.</p>
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+  <!-- TAB 4: CLUB EVENTS -->
+  {% elif tab == 'events' %}
+    <div style="display:flex; flex-direction:column; gap:20px;">
+
+      <!-- Create Event Form (Club and Admin only) -->
+      {% if current_user.role in ('club', 'admin') %}
+        <div class="card" style="border-radius:var(--radius-lg); border:1px solid var(--gray-200); box-shadow:var(--shadow-sm); padding:24px;">
+          <h2 style="font-size:1.25rem; font-weight:800; color:var(--gray-900); margin-bottom:6px;">
+            📅 Post Upcoming Club Event
+          </h2>
+          <p style="color:var(--gray-500); font-size:0.88rem; margin-bottom:18px;">
+            Share workshops, competitions, orientation sessions, and meetups with all students.
+          </p>
+
+          <form method="POST" action="{{ url_for('create_club_event') }}" enctype="multipart/form-data">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;">
+              <div class="form-group">
+                <label class="form-label" style="font-weight:700; font-size:0.88rem;">Event Title <span class="required" style="color:#ef4444;">*</span></label>
+                <input type="text" name="title" class="form-control" required placeholder="e.g. AI Hackathon 2026" style="border-radius:var(--radius-md);" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="font-weight:700; font-size:0.88rem;">Venue / Location</label>
+                <input type="text" name="venue" class="form-control" placeholder="e.g. Campus Auditorium / Lab 3" style="border-radius:var(--radius-md);" />
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:14px;">
+              <div class="form-group">
+                <label class="form-label" style="font-weight:700; font-size:0.88rem;">Event Date <span class="required" style="color:#ef4444;">*</span></label>
+                <input type="date" name="event_date" class="form-control" required style="border-radius:var(--radius-md);" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="font-weight:700; font-size:0.88rem;">Event Time</label>
+                <input type="text" name="event_time" class="form-control" placeholder="e.g. 10:00 AM - 1:00 PM" style="border-radius:var(--radius-md);" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="font-weight:700; font-size:0.88rem;">Registration Link (URL)</label>
+                <input type="url" name="registration_link" class="form-control" placeholder="https://forms.gle/..." style="border-radius:var(--radius-md);" />
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:14px;">
+              <label class="form-label" style="font-weight:700; font-size:0.88rem;">Event Description <span class="required" style="color:#ef4444;">*</span></label>
+              <textarea name="description" rows="3" class="form-control" required placeholder="Describe event agenda, prizes, prerequisites..." style="border-radius:var(--radius-md);"></textarea>
+            </div>
+
+            <div class="form-group" style="margin-bottom:18px;">
+              <label class="form-label" style="font-weight:700; font-size:0.88rem;">Poster / Banner Image (Optional)</label>
+              <input type="file" name="poster" class="form-control" style="border-radius:var(--radius-md);" />
+            </div>
+
+            <div style="display:flex; justify-content:flex-end;">
+              <button type="submit" class="btn btn-primary" style="font-weight:700; border-radius:var(--radius-md); padding:8px 20px;">
+                📅 Publish Event
+              </button>
+            </div>
+          </form>
+        </div>
+      {% endif %}
+
+      <!-- Events List -->
+      <div>
+        <h2 style="font-size:1.25rem; font-weight:800; color:var(--gray-900); margin-bottom:14px;">
+          📅 Upcoming Campus Club Events ({{ club_events|length }})
+        </h2>
+
+        {% if club_events %}
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:20px;">
+            {% for ev in club_events %}
+              <div class="card" style="border-radius:var(--radius-lg); border:1px solid var(--gray-200); box-shadow:var(--shadow-sm); overflow:hidden; display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                  {% if ev.file_url %}
+                    <div style="height:160px; overflow:hidden; background:var(--gray-100);">
+                      <img src="{{ ev.file_url }}" alt="{{ ev.title }}" style="width:100%; height:100%; object-fit:cover;" />
+                    </div>
+                  {% endif %}
+                  <div style="padding:20px;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+                      <span class="badge badge-purple" style="font-size:0.75rem;">🏛️ {{ ev.club_name }}</span>
+                      <span style="font-size:0.8rem; font-weight:700; color:var(--primary-600); background:var(--primary-50); padding:2px 8px; border-radius:999px;">
+                        🗓️ {{ ev.event_date }}
+                      </span>
+                    </div>
+                    <h3 style="font-size:1.15rem; font-weight:700; color:var(--gray-900); margin:6px 0;">
+                      {{ ev.title }}
+                    </h3>
+                    <div style="font-size:0.82rem; color:var(--gray-500); margin-bottom:10px;">
+                      📍 Venue: <strong>{{ ev.venue }}</strong>
+                      {% if ev.event_time %} • ⏰ {{ ev.event_time }}{% endif %}
+                    </div>
+                    <p style="color:var(--gray-600); font-size:0.88rem; line-height:1.5; margin-bottom:14px;">
+                      {{ ev.description }}
+                    </p>
+                  </div>
+                </div>
+
+                <div style="padding:16px 20px; border-top:1px solid var(--gray-100); display:flex; justify-content:space-between; align-items:center;">
+                  {% if ev.registration_link %}
+                    <a href="{{ ev.registration_link }}" target="_blank" class="btn btn-primary btn-xs" style="border-radius:999px; font-weight:700;">
+                      Register Now →
+                    </a>
+                  {% else %}
+                    <span style="font-size:0.8rem; color:var(--gray-400);">Open for all students</span>
+                  {% endif %}
+
+                  {% if current_user.uid == ev.club_uid or current_user.role == 'admin' %}
+                    <form method="POST" action="{{ url_for('delete_club_event', event_id=ev.id) }}" onsubmit="return confirm('Delete this event?');">
+                      <button type="submit" class="btn btn-ghost btn-xs" style="color:#ef4444;">Delete</button>
+                    </form>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="card" style="padding:48px 20px; text-align:center;">
+            <div style="font-size:2.5rem; margin-bottom:12px;">📅</div>
+            <h3>No Upcoming Club Events</h3>
+            <p style="color:var(--gray-500); max-width:400px; margin:8px auto 0;">Upcoming club activities, hackathons, and webinars will be listed here.</p>
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+  <!-- TAB 5: CLUB GALLERY / IMAGES -->
+  {% elif tab == 'gallery' %}
+    <div style="display:flex; flex-direction:column; gap:20px;">
+
+      <!-- Upload Photo Form (Club and Admin only) -->
+      {% if current_user.role in ('club', 'admin') %}
+        <div class="card" style="border-radius:var(--radius-lg); border:1px solid var(--gray-200); box-shadow:var(--shadow-sm); padding:24px;">
+          <h2 style="font-size:1.25rem; font-weight:800; color:var(--gray-900); margin-bottom:6px;">
+            🖼️ Upload Club Photo
+          </h2>
+          <p style="color:var(--gray-500); font-size:0.88rem; margin-bottom:18px;">
+            Showcase moments from club orientations, workshops, team meetings, and hackathons.
+          </p>
+
+          <form method="POST" action="{{ url_for('upload_club_image') }}" enctype="multipart/form-data">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;">
+              <div class="form-group">
+                <label class="form-label" style="font-weight:700; font-size:0.88rem;">Photo Title <span class="required" style="color:#ef4444;">*</span></label>
+                <input type="text" name="title" class="form-control" required placeholder="e.g. Winners of Hackathon 2026" style="border-radius:var(--radius-md);" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="font-weight:700; font-size:0.88rem;">Image File (PNG, JPG, WEBP) <span class="required" style="color:#ef4444;">*</span></label>
+                <input type="file" name="image" class="form-control" required accept="image/*" style="border-radius:var(--radius-md);" />
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:18px;">
+              <label class="form-label" style="font-weight:700; font-size:0.88rem;">Caption / Short Note</label>
+              <input type="text" name="caption" class="form-control" placeholder="A brief description of this photo..." style="border-radius:var(--radius-md);" />
+            </div>
+
+            <div style="display:flex; justify-content:flex-end;">
+              <button type="submit" class="btn btn-primary" style="font-weight:700; border-radius:var(--radius-md); padding:8px 20px;">
+                🖼️ Upload to Gallery
+              </button>
+            </div>
+          </form>
+        </div>
+      {% endif %}
+
+      <!-- Photos Grid -->
+      <div>
+        <h2 style="font-size:1.25rem; font-weight:800; color:var(--gray-900); margin-bottom:14px;">
+          🖼️ Club Photos & Memories ({{ club_images|length }})
+        </h2>
+
+        {% if club_images %}
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:20px;">
+            {% for img in club_images %}
+              <div class="card" style="border-radius:var(--radius-lg); border:1px solid var(--gray-200); box-shadow:var(--shadow-sm); overflow:hidden;">
+                <div style="height:200px; overflow:hidden; background:var(--gray-100); position:relative;">
+                  <img src="{{ img.image_url }}" alt="{{ img.title }}" style="width:100%; height:100%; object-fit:cover;" />
+                </div>
+                <div style="padding:16px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <span class="badge badge-purple" style="font-size:0.75rem;">🏛️ {{ img.club_name }}</span>
+                    <span style="font-size:0.75rem; color:var(--gray-400);">{{ img.created_at }}</span>
+                  </div>
+                  <h4 style="font-size:1rem; font-weight:700; color:var(--gray-900); margin:4px 0;">{{ img.title }}</h4>
+                  {% if img.caption %}
+                    <p style="font-size:0.85rem; color:var(--gray-600); margin-top:4px;">{{ img.caption }}</p>
+                  {% endif %}
+
+                  {% if current_user.uid == img.club_uid or current_user.role == 'admin' %}
+                    <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+                      <form method="POST" action="{{ url_for('delete_club_image', image_id=img.id) }}" onsubmit="return confirm('Delete this image?');">
+                        <button type="submit" class="btn btn-ghost btn-xs" style="color:#ef4444;">Delete Photo</button>
+                      </form>
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="card" style="padding:48px 20px; text-align:center;">
+            <div style="font-size:2.5rem; margin-bottom:12px;">🖼️</div>
+            <h3>No Club Photos Uploaded</h3>
+            <p style="color:var(--gray-500); max-width:400px; margin:8px auto 0;">Photos uploaded by student clubs will appear in this campus gallery.</p>
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+  {% endif %}
+
+</div>
+{% endblock %}

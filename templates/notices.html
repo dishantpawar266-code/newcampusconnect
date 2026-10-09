@@ -3,12 +3,22 @@
 {% block page_title %}Notices{% endblock %}
 {% block content %}
 
+<!-- Section Tabs: Official Notices vs Club Notices -->
+<div style="display:flex; gap:10px; margin-bottom:20px; border-bottom:1px solid var(--gray-200); padding-bottom:12px;">
+  <a href="{{ url_for('notices') }}" class="btn btn-sm btn-primary" style="font-weight:700; border-radius:999px;">
+    📢 Official & Faculty Notices (Active)
+  </a>
+  <a href="{{ url_for('clubs', tab='notices') }}" class="btn btn-sm btn-outline" style="font-weight:600; border-radius:999px;">
+    🏛️ Club Notices & Announcements →
+  </a>
+</div>
+
 <div class="page-header">
   <div class="page-header-left">
-    <h1 class="page-title">Notices</h1>
-    <p class="page-subtitle">Official department circulars, academic announcements, and club updates</p>
+    <h1 class="page-title">📢 Official Campus & Faculty Notices</h1>
+    <p class="page-subtitle">Official department circulars and academic announcements published by faculty and administration</p>
   </div>
-  {% if current_user.role in ('faculty', 'club', 'admin') %}
+  {% if current_user.role in ('faculty', 'admin') %}
     <a href="{{ url_for('create_notice') }}" class="btn btn-primary">+ New Notice</a>
   {% endif %}
 </div>
@@ -33,7 +43,7 @@
   <select class="form-control" id="category-filter" style="width:auto">
     <option value="">All Categories</option>
     <option value="academic">Academic</option>
-    <option value="club">Club</option>
+    <option value="general">General</option>
   </select>
 </div>
 

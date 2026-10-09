@@ -104,7 +104,10 @@
           <span class="nav-icon">📢</span> Notices
         </a>
         <a href="{{ url_for('doubts') }}" class="{% if request.endpoint in ('doubts', 'ask_doubt') %}active{% endif %}">
-          <span class="nav-icon">❓</span> Ask Doubts
+          <span class="nav-icon">❓</span> Ask Faculty
+        </a>
+        <a href="{{ url_for('clubs') }}" class="{% if request.endpoint in ('clubs', 'ask_club') %}active{% endif %}">
+          <span class="nav-icon">🏛️</span> Campus Clubs
         </a>
         <a href="{{ url_for('quizzes') }}" class="{% if request.endpoint in ('quizzes', 'attempt_quiz', 'quiz_result') %}active{% endif %}">
           <span class="nav-icon">🏆</span> Quizzes

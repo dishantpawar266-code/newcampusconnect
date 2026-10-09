@@ -134,8 +134,36 @@ class Doubt(db.Model):
     department = db.Column(db.String(100))
     answer = db.Column(db.Text)
     answered = db.Column(db.Boolean, default=False)
+    status = db.Column(db.String(20), default='Pending')
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
     answered_at = db.Column(db.DateTime(timezone=True))
+
+class ClubEvent(db.Model):
+    __tablename__ = 'club_events'
+    id = db.Column(db.String(36), primary_key=True, default=lambda: uuid.uuid4().hex)
+    club_uid = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    club_name = db.Column(db.String(100), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    event_date = db.Column(db.String(50), nullable=False) # e.g. YYYY-MM-DD
+    event_time = db.Column(db.String(50), nullable=True) # e.g. 10:00 AM
+    venue = db.Column(db.String(100), nullable=True)
+    registration_link = db.Column(db.String(255), nullable=True)
+    file_id = db.Column(db.String(36), db.ForeignKey('uploaded_files.id'), nullable=True)
+    file_name = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
+
+class ClubImage(db.Model):
+    __tablename__ = 'club_images'
+    id = db.Column(db.String(36), primary_key=True, default=lambda: uuid.uuid4().hex)
+    club_uid = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    club_name = db.Column(db.String(100), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    caption = db.Column(db.Text, nullable=True)
+    file_id = db.Column(db.String(36), db.ForeignKey('uploaded_files.id'), nullable=False)
+    file_name = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
+
 
 class Quiz(db.Model):
     __tablename__ = 'quizzes'
@@ -288,6 +316,10 @@ def init_db_and_migrate(app):
                         conn.execute(text("ALTER TABLE quizzes ADD COLUMN end_time VARCHAR(50)"))
                     if 'description' not in existing_cols:
                         conn.execute(text("ALTER TABLE quizzes ADD COLUMN description TEXT"))
+                if 'doubts' in table_names:
+                    existing_cols = [c['name'] for c in inspector.get_columns('doubts')]
+                    if 'status' not in existing_cols:
+                        conn.execute(text("ALTER TABLE doubts ADD COLUMN status VARCHAR(20) DEFAULT 'Pending'"))
                 conn.commit()
         except Exception as e:
             app.logger.warning(f"Database migration check warning: {e}")

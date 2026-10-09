@@ -31,8 +31,8 @@
         </div>
       </div>
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <a href="{{ url_for('create_notice') }}" class="btn btn-primary btn-sm">+ Publish Club Notice</a>
-        <a href="{{ url_for('resources') }}" class="btn btn-outline btn-sm" style="background:white;">Campus Resources</a>
+        <a href="{{ url_for('clubs', tab='notices') }}" class="btn btn-primary btn-sm">+ Publish Club Notice</a>
+        <a href="{{ url_for('clubs', tab='events') }}" class="btn btn-outline btn-sm" style="background:white;">+ Add Event</a>
       </div>
     </div>
   </div>
@@ -85,38 +85,38 @@
 
 <div class="quick-actions-grid">
   <!-- Post Notice -->
-  <a href="{{ url_for('create_notice') }}" class="action-card">
+  <a href="{{ url_for('clubs', tab='notices') }}" class="action-card">
     <div class="action-icon cyan">📢</div>
     <div class="action-info">
       <h4>Publish Club Notice</h4>
-      <p>Broadcast event circulars & registration links</p>
+      <p>Broadcast event circulars & announcements</p>
     </div>
   </a>
 
-  <!-- Questions -->
-  <a href="{{ url_for('doubts') }}" class="action-card">
+  <!-- Questions / Inquiries -->
+  <a href="{{ url_for('clubs', tab='ask') }}" class="action-card">
     <div class="action-icon rose">❓</div>
     <div class="action-info">
       <h4>Student Inquiries</h4>
-      <p>Reply to questions about auditions & workshops</p>
+      <p>Reply to doubts & questions about your club</p>
     </div>
   </a>
 
-  <!-- Resources -->
-  <a href="{{ url_for('resources') }}" class="action-card">
-    <div class="action-icon green">🌐</div>
+  <!-- Club Events -->
+  <a href="{{ url_for('clubs', tab='events') }}" class="action-card">
+    <div class="action-icon amber">📅</div>
     <div class="action-info">
-      <h4>Event & Resources Hub</h4>
-      <p>Explore tools, guidelines & student resources</p>
+      <h4>Post Club Events</h4>
+      <p>Publish workshops, competitions & hackathons</p>
     </div>
   </a>
 
-  <!-- Profile -->
-  <a href="{{ url_for('profile') }}" class="action-card">
-    <div class="action-icon purple">🏛️</div>
+  <!-- Gallery Photos -->
+  <a href="{{ url_for('clubs', tab='gallery') }}" class="action-card">
+    <div class="action-icon purple">🖼️</div>
     <div class="action-info">
-      <h4>Club Profile</h4>
-      <p>Update category, description & social details</p>
+      <h4>Upload Photos</h4>
+      <p>Share event pictures with campus students</p>
     </div>
   </a>
 </div>
@@ -131,7 +131,7 @@
         <span style="font-size:1.2rem;">📢</span>
         <h3 class="card-title" style="margin:0;">Club Notices & Bulletins</h3>
       </div>
-      <a href="{{ url_for('notices') }}" class="btn btn-ghost btn-sm">All Notices →</a>
+      <a href="{{ url_for('clubs', tab='notices') }}" class="btn btn-ghost btn-sm">All Club Notices →</a>
     </div>
 
     <div style="display:flex; flex-direction:column; gap:12px;">
@@ -158,7 +158,7 @@
           <div class="empty-state-icon">📢</div>
           <div class="empty-state-title">No Club Notices Yet</div>
           <p class="empty-state-desc">Publish announcements to invite students to your events, competitions, or team inductions.</p>
-          <a href="{{ url_for('create_notice') }}" class="btn btn-outline btn-sm">+ Post Notice</a>
+          <a href="{{ url_for('clubs', tab='notices') }}" class="btn btn-outline btn-sm">+ Post Notice</a>
         </div>
       {% endif %}
     </div>
@@ -171,7 +171,7 @@
         <span style="font-size:1.2rem;">❓</span>
         <h3 class="card-title" style="margin:0;">Student Inquiries</h3>
       </div>
-      <a href="{{ url_for('doubts') }}" class="btn btn-ghost btn-sm">All Questions →</a>
+      <a href="{{ url_for('clubs', tab='ask') }}" class="btn btn-ghost btn-sm">All Questions →</a>
     </div>
 
     <div style="display:flex; flex-direction:column; gap:12px;">
@@ -181,7 +181,7 @@
             <div style="font-weight:600; font-size:0.95rem; color:var(--gray-900);">{{ doubt.question }}</div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:0.8rem; color:var(--gray-500); flex-wrap:wrap; gap:6px;">
               <span>👤 Asked by <strong>{{ doubt.asker_name }}</strong></span>
-              <a href="{{ url_for('doubts') }}" class="btn btn-primary btn-xs">Reply →</a>
+              <a href="{{ url_for('clubs', tab='ask') }}" class="btn btn-primary btn-xs">Reply →</a>
             </div>
           </div>
         {% endfor %}

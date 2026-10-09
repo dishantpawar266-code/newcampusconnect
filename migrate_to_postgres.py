@@ -48,7 +48,8 @@ def migrate():
     from models import (
         db, User, UploadedFile, Notice, Assignment, Note, NoteShare,
         AssignmentSubmission, Doubt, Quiz, QuizResult, Conversation,
-        Message, StudySession, Task, ExamReminder, LoginLog, ActivityLog
+        Message, StudySession, Task, ExamReminder, LoginLog, ActivityLog,
+        ClubEvent, ClubImage
     )
 
     # Tables in topological dependency order
@@ -61,6 +62,8 @@ def migrate():
         Note,
         NoteShare,
         Doubt,
+        ClubEvent,
+        ClubImage,
         Quiz,
         Conversation,
         StudySession,
